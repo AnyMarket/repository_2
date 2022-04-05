@@ -1,0 +1,4171 @@
+openapi: 3.0.0
+info:
+  title: REMOTE MARKETPLACE
+  version: '1.0'
+  contact:
+    email: anymarketdev@db1.com.br
+    name: AnyMarket Developers
+    url: 'http://developers.anymarket.com.br/'
+  x-logo:
+    url: 'https://anymarket.com.br/wp-content/uploads/2018/07/icon-anymarket-300x300.png'
+  x-preferred: true
+  x-providerName: REMOTE MARKETPLACE
+  description: |-
+    Esta API deve ser implementada pelo marketplace. A API ANYMARKET funcionará como um sistema de notificações aonde já temos os remotes prontos que serão disparados na URL base da API que vocês nos informaram no preenchimento do documento de liberação.
+
+    Abaixo contem os remotes de cadas uma das aplicações que o marketplace deve realizar com base na regra de negocio previamente formalizada na PGP.
+
+    ### Identificando um seller
+
+    As chamadas abaixo serão disparadas para obter algumas informações referente a identificação do seller. As mesmas serão utilizadas como identificador em alguns momento como:
+    Envio de anúncios para o marketplace;
+    Atualizações dos anúncios;
+    Ativações de algumas funcionalidades internas que o seller pode utilizar no ANYMARKET como criação de campanhas e entre outros. 
+servers:
+  - url: 'http://endereco.marketplace.com.br'
+    description: Servidor do Marketplace
+paths:
+  /sendProduct:
+    post:
+      summary: /sendProduct
+      operationId: post-sendProduct
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationResponse'
+              examples:
+                Example:
+                  value:
+                    publicationStatus: UNPUBLISHED
+                    marketplaceStatus: string
+                    transmissionStatus: WAITING_SYNC
+                Exemplo 2 - Atualização:
+                  value:
+                    publicationStatus: ACTIVE
+                    marketplaceStatus: Ativo - O Marketplace está processando a atualização.
+                    transmissionStatus: SYNCING
+      description: |-
+        O objetivo da chamada sendProduct é enviar o anúncio para o Marketplace informando que foi criado no ANYMARKET ou que teve uma atualização que deve ser refletida no marketplace. 
+        <!-- theme: warning -->
+        > #### Ponto de Atenção!
+        >
+        > É através deste remote que o ANYMARKET encaminhará a notificação para o markektplace que o anuncio teve alguma modificação, seja ela de preço, estoque ou cadastro. É importante que assim que o marketplace receber a notificação faça uma chamada de consulta para a nossa API no anuncio notificado, afim de consultar os dados e realizar a alteração na camada do marketplace. 
+
+        ### Orientações
+
+        - Quando identificado que é uma nova publicação é recomendado que o marketplace mantenha o publicationStatus como UNPUBLISHED e o marketplaceStatus como processando, conforme o primeiro exemplo. 
+        - Assim que o anuncio for processado o marketplace precisa realizar uma chamada na nossa API para atualizar o status ou descrever o motivo do não processamento.
+        - Em casos em que o marketplace identificar que se trata de uma atualização, o mesmo deve responder a chamada do /sendProduct avisando que está processando a atualização e posteriormente acionar a nossa API afim de retirar o sincronizando da transmissão e deixando atualizado o status do anuncio. (Exemplo 2).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendPublication'
+            examples:
+              Example:
+                value:
+                  idSkuMarketplace: 0
+                  idSkuMarketplaceMain: 0
+                  status: UNPUBLISHED
+                  onlySync: true
+                  idSku: 0
+                  availableAmount: 0
+                  idAccount: 0
+                  idProduct: 0
+                  skuInMarketplace: string
+                  onlySyncPrice: true
+                  onlySyncStock: true
+                  onlySyncStatus: true
+              example 2 - Exemplo de Atualização:
+                value:
+                  idSkuMarketplace: 58717
+                  idSkuMarketplaceMain: 58717
+                  status: ACTIVE
+                  onlySync: true
+                  idSku: 791780
+                  availableAmount: 100
+                  idAccount: 1
+                  idProduct: 1234
+                  skuInMarketplace: null
+                  onlySyncPrice: true
+                  onlySyncStock: true
+                  onlySyncStatus: true
+        description: ''
+      tags:
+        - Anúncios
+  /deletePublication:
+    delete:
+      summary: /deletePublication
+      operationId: delete-deletePublication
+      x-groupName: Api Integration
+      x-sortIndex: 2
+      responses:
+        '200':
+          description: OK
+      description: |-
+        O remote tem intuito de notificar o marketplace que a publicação está sendo removida do ANYMARKET e com isso o marketplace não recebera mais atualizações de preço, estoque e consequentemente realizar a inserção de pedidos na base.
+
+        <!-- theme: warning -->
+
+        > #### Ponto de Atenção!
+        >
+        > Por isso, quando o marketplace receber a notificação é importante que o mesmo inative o produto para vendas, evitando assim vendas sem estoque e problemas futuros. 
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeletePublication'
+            examples:
+              Example:
+                value:
+                  idSkuMarketplace: 0
+                  idSkuMarketplaceMain: 0
+                  status: UNPUBLISHED
+                  onlySync: true
+                  idSku: 0
+                  availableAmount: 0
+                  idAccount: 0
+                  idProduct: 0
+                  skuInMarketplace: string
+                  onlySyncPrice: true
+                  onlySyncStock: true
+                  onlySyncStatus: true
+        description: ''
+      tags:
+        - Anúncios
+  '/getDefaultSkuFields/{idSku}':
+    parameters:
+      - schema:
+          type: string
+        name: idSku
+        in: path
+        required: true
+        description: Código do Sku no Anymarket
+    get:
+      summary: '/getDefaultSkuFields/{idSku}'
+      tags:
+        - Anúncios
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  String:
+                    type: string
+              examples:
+                Example:
+                  value:
+                    EAN: '7894566666666'
+                    title: Panela Elétrica de Arroz Visor Glass Philco Preta 220V
+                    DISCOUNT_VALUE: '0'
+                    DISCOUNT_TYPE: PERCENT
+                    priceFactor: '1'
+      operationId: get-getDefaultSkuFields-idSku
+      parameters:
+        - schema:
+            type: string
+          in: query
+          name: idAccount
+          description: Código da conta no marketplace
+      description: |-
+        Após o marketplace autorizar o envio do produto na requisição anterior (canActive), o ANYMARKET irá disparar uma chamada para obter alguns dados obrigatórios para criação da interface do anuncio no painel ANYMARKET.
+        É necessário que o marketplace retorne o titulo do SKU, EAN e as informações default de preço
+  /canSave:
+    post:
+      summary: /canSave
+      operationId: post-canSave
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: boolean
+              examples:
+                Example:
+                  value: true
+        '422':
+          description: Unprocessable Entity (WebDAV)
+          content:
+            application/json:
+              schema:
+                description: ''
+                type: object
+                properties:
+                  code:
+                    type: string
+                    minLength: 1
+                  httpStatus:
+                    type: number
+                  message:
+                    type: string
+                    minLength: 1
+                  details:
+                    type: string
+                    minLength: 1
+                required:
+                  - code
+                  - httpStatus
+                  - message
+                  - details
+                x-examples:
+                  example-1:
+                    code: PublicationValidationException
+                    httpStatus: 422
+                    message: Erro ao validar publicação
+                    details: O anuncio não possui os atributos obrigatorios solicitados (.....)
+              examples:
+                Exemplo- Erro na validação:
+                  value:
+                    code: PublicationValidationException
+                    httpStatus: 422
+                    message: Erro ao validar publicação
+                    details: O anuncio não possui os atributos obrigatorios solicitados (.....)
+      description: |-
+        O \canSave é um remote obrigatório e é utilizado para que o marketplace realize uma pré validação do anuncio, antes que ele seja publicado.
+        Exemplos de validação:
+        - Atributos;
+        - Verificar se a ficha técnica estão completas para a categoria que estão enviando;
+        - validar se contem palavras proibidas na descrição e titulo;
+        - Trava de valor minimo no anúncio;
+        - Se o cliente tem a liberação para publicar na categoria;
+        - Autorização para vendar determinada marca no MarketPlace;
+
+        **Mesmo se tratando de um remote obrigatório, o marketplace pode não optar por realizar essa pré-validação, retornando nesses casos um http (status 200, OK) e no "responsebody = true" que é a informação esperada para prosseguir com o anuncio.**
+
+        <!--
+        focus: false
+        -->
+        ![image.png](http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/31479673./3775713692465E756FBEAD86AB14131B/standard_resolution.jpg)
+      tags:
+        - Anúncios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/canSave'
+  /canActive:
+    post:
+      summary: /canActive
+      operationId: post-canActive
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: boolean
+              examples:
+                Example:
+                  value: true
+        '422':
+          description: Unprocessable Entity (WebDAV)
+          content:
+            application/json:
+              schema:
+                description: ''
+                type: object
+                properties:
+                  code:
+                    type: string
+                    minLength: 1
+                  httpStatus:
+                    type: number
+                  message:
+                    type: string
+                    minLength: 1
+                  details:
+                    type: string
+                    minLength: 1
+                required:
+                  - code
+                  - httpStatus
+                  - message
+                  - details
+                x-examples:
+                  example-1:
+                    code: PublicationValidationException
+                    httpStatus: 422
+                    message: string
+                    details: string
+              examples:
+                example-1:
+                  value:
+                    code: PublicationValidationException
+                    httpStatus: 422
+                    message: Erro ao validar publicação
+                    details: 'Palavra proibida identificada na descrição do anúncio, realize a correção e tente enviar o anuncio novamente'
+      description: |-
+        A finalidade deste remote é informar uma previa do SKU que o seller está querendo transmitir para o marketplace. O JSON que é encaminhado no corpo da chamada contem os dados do SKU e dados do produto.
+        Neste momento é esperado que o marketplace faça uma breve analise do conteúdo, validando assim informações pertinentes a criação do anuncio no marketplace, como por exemplo, se dados como vinculação de categoria, marca e variação foram realizados pelo seller.
+        Em caso de sucesso o marketplace deve retornar um http status 200 e tendo como response body um valor booleano, em caso de negativa é esperado que o marketplace retorne o motivo, para assim o seller ter o retorno visual da negativa e aplicar as correções apresentadas.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SKU'
+            examples:
+              Example:
+                value:
+                  id: 0
+                  partnerId: string
+                  amount: 0
+                  ean: string
+                  title: string
+                  price: 0
+                  sellPrice: 0
+                  additionalTime: 0
+                  variations:
+                    - id: 0
+                      idInMarketplace: string
+                      description: string
+                      type:
+                        id: 0
+                        idInMarketplace: string
+                        name: string
+                        partnerId: string
+                        visualVariation: true
+                      partnerId: string
+                  product:
+                    id: 0
+                    title: string
+                    description: string
+                    model: string
+                    nbm:
+                      id: string
+                      description: string
+                    videoUrl: string
+                    definitionPriceScope: COST
+                    characteristics:
+                      - index: 0
+                        name: string
+                        value: string
+                    origin:
+                      id: 0
+                      name: NACIONAL
+                    category:
+                      id: 0
+                      idInMarketplace: string
+                      name: string
+                      path: string
+                    height: 0
+                    length: 0
+                    width: 0
+                    weight: 0
+                    images:
+                      - id: 0
+                        index: 0
+                        variation: string
+                        thumbnailUrl: string
+                        standardUrl: string
+                        lowResolutionUrl: string
+                        originalImage: string
+                        url: string
+                        statusMessage: string
+                        status: UNPROCESSED
+                        main: true
+                        standardWidth: string
+                        standardHeight: string
+                        originalWidth: string
+                        originalHeight: string
+                    brand:
+                      id: 0
+                      idInMarketplace: string
+                      name: string
+                      partnerId: string
+                    warrantyTime: 0
+                    warrantyText: string
+                    priceFactor: 0
+                    calculatedPrice: true
+                    hasVariations: true
+                    gender: MALE
+                    allowAutomaticSkuMarketplaceCreation: true
+        description: ''
+      tags:
+        - Anúncios
+  /saveAccount:
+    post:
+      summary: /saveAccount
+      operationId: post-saveAccount
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: boolean
+              examples:
+                Sucesso:
+                  value: true
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: boolean
+              examples:
+                Falha:
+                  value: false
+      tags:
+        - Configuração
+      description: Nesta notificação enviamos os dados da configuração informados pelo Seller caso o middleware queira armazenar.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/saveAccount'
+            examples:
+              example-1:
+                value:
+                  id: 1
+                  active: true
+                  templateId: null
+                  accountName: Conta - Teste
+                  discountType: PERCENT
+                  useSandbox: true
+                  accountDefault: true
+                  priceFactor: 1
+                  discountValue: 0
+                  initialDateForOrderImport: null
+                  updatePriceStockStatus: true
+                  additionOfFreight: 0
+                  user:
+                    token: LG1234567891234R-987456321
+                    country: null
+                  field1: string
+                  field2: string
+  /testIntegration:
+    post:
+      summary: /testIntegration
+      operationId: post-testIntegration
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: boolean
+              examples:
+                Example:
+                  value: true
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                description: ''
+                type: boolean
+                x-examples:
+                  example-1:
+                    value: true
+              examples:
+                Example-1:
+                  value: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModuleConfiguration'
+            examples:
+              example-1:
+                id: 0
+                active: true
+                templateId: null
+                accountName: string
+                discountType: PERCENT
+                useSandbox: true
+                accountDefault: true
+                priceFactor: 0
+                discountValue: 0
+                initialDateForOrderImport: null
+                updatePriceStockStatus: true
+                additionOfFreight: 0
+                field1: value1
+                field2: value2
+        description: Teste de Integração
+      tags:
+        - Configuração
+      description: |-
+        Nesta notificação enviamos os dados de autenticação no marketplace configurados pelo Seller, para que o middleware valide o acesso junto ao marketplace.
+
+        O remote é acionado quando o cliente no ANYMARKET clica no botão “salvar” na tela de autenticação, no modulo disponibilizada pelo ANYMARKET. 
+  '/order/force/{idInMarketPlace}':
+    parameters:
+      - schema:
+          type: string
+        name: idInMarketPlace
+        in: path
+        required: true
+        description: Código do pedido no marketplace
+    post:
+      summary: '/order/force/{idInMarketPlace}'
+      operationId: post-order-force-idInMarketPlace
+      x-groupName: Api Integration
+      x-sortIndex: 1
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: boolean
+              examples:
+                Example:
+                  value: true
+      description: Enviaremos essa notificação sempre que o seller solicitar o reenvio do pedido do marketplace para o ANYMARKET (Monitoring)
+      parameters:
+        - schema:
+            type: string
+          in: query
+          name: idAccount
+          description: Código da conta
+        - schema:
+            type: string
+          in: query
+          name: oi
+          description: Código oi do cliente
+          required: true
+      tags:
+        - Pedidos
+  /forceImportOrders:
+    post:
+      summary: /forceImportOrders
+      operationId: post-forceImportOrders
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: boolean
+              examples:
+                example-1:
+                  value: true
+      description: |-
+        Enviaremos essa notificação quando o seller solicitar a importação de todos os pedidos para o painel do ANYMARKET (Tela de Configuração).
+        Após receber essa notificação, o Marketplace deve nos retornar um HTTP Status 200 Ok e realizar a seguinte ação:
+        - Verificar em sua base de dados se existem pedidos PENDENTES ou PAGOS para aquele Seller, a partir da DATA informada no atributo `initialDateForOrderImport`;
+        - Após verificar os pedidos, o Marketplace deve realizar o POST `/orders` inserindo esses pedidos no ANYMARKET.
+      parameters:
+        - schema:
+            type: string
+          in: query
+          name: idAccount
+          required: true
+          description: Código da conta
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationDTO'
+            examples:
+              Example:
+                value:
+                  id: 0
+                  oi: string
+                  active: true
+                  templateId: 0
+                  accountName: string
+                  marketplace: string
+                  discountType: PERCENT
+                  useSandbox: true
+                  accountDefault: true
+                  priceFactor: 0
+                  discountValue: 0
+                  initialDateForOrderImport: '2019-08-24'
+                  updatePriceStockStatus: true
+                  additionOfFreight: 0
+                  fields:
+                    - string
+        description: ''
+      tags:
+        - Pedidos
+  '/order/{marketplaceId}/invoice/document?idAccount={idAccount}}':
+    parameters:
+      - schema:
+          type: string
+        name: marketplaceId
+        in: path
+        required: true
+        description: id do pedido no marketplace
+      - schema:
+          type: string
+        name: idAccount
+        in: path
+        required: true
+    put:
+      summary: '/order/{marketplaceId}/invoice/document'
+      operationId: put-order-marketplaceId-invoice-document?idAccount=-idAccount
+      responses:
+        '200':
+          description: 'true'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                description: ''
+                type: object
+                x-examples:
+                  example-1:
+                    status: string
+                properties:
+                  status:
+                    type: string
+                    minLength: 1
+      tags:
+        - Pedidos
+      description: "Remote aonde o marketplace receberá o conteúdo XML da nota fiscal, caso tenha como obrigatoriedade a necessidade de receber essa informação para marcar o status do pedido como “Faturado”.\n\n![image.png](https://i.ibb.co/yNQ0fLH/Faturado-Diagrama-4.png)\n\n\n\n1.\tSeller encaminha os dados via JSON\n     - a. Marketplace recebe a notificação de atualização;\n     - b. Validar se o pedido já possui os dados de fatura;\n     - c. Se possuir dados de fatura, o marketplace deve marcar o pedido com o status atual no marketplace e retornar sucesso na requisição;\n\t - d. Se não possuir os dados de fatura, o marketplace deve marcar o pedido com o status atual no marketplace e retornar o erro na requisição.\n\t \n2.\tSeller encaminha o conteúdo XML\n\t - a.\tMarketplace recebe a chamada com o conteúdo XML;\n     - b.\tSe o marketplace possuir processos síncronos deve ser retornado 200(ok) ou informar o erro já na chamada de notificação;\n     - c.\tSe o marketplace possuir processos assíncronos, após validar o arquivo o marketplace deve marcar o pedido com o status atual no marketplace e retornar o erro ou sucesso na requisição.\n\t \nÉ importante levar em consideração também que o seller pode encaminhar primeiramente o XML e posteriormente o JSON e vice-versa, entretanto caso as validações conforme exemplificadas no fluxo acima sejam realizadas, todos os cenários serão cobertos e o seller terá a visibilidade do status.\n\nHá uma particularidade nos cenários quando:\n\n3.    Seller realizar o envio do XML via API\n       - a. O pedido ficará como status PAGO(PAID) no ANYMARKET até que o pedido seja marcado para ENVIADO (SHIPPED).\n4.    Seller realizar o envio do XML via tela ANYMARKET\n       - b. O pedido ficará como status PAGO(PAID) no ANYMARKET até que o pedido seja marcado para ENVIADO (SHIPPED). \n\n"
+      requestBody:
+        content:
+          application/xml:
+            schema:
+              type: object
+              description: Conteudo XML
+            examples:
+              example-1:
+                value: |-
+                  <nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+                  <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+                  <infNFe versao="4.00" Id="NFe41190908328657000194550015624654251041433087">
+                  <ide>
+                  <cUF>41</cUF>
+                  <cNF>04143308</cNF>
+                  <natOp>Venda de mercadorias</natOp>
+                  <mod>55</mod>
+                  <serie>1</serie>
+                  <nNF>562465425</nNF>
+                  <dhEmi>2019-09-11T15:57:56-03:00</dhEmi>
+                  <tpNF>1</tpNF>
+                  <idDest>1</idDest>
+                  <cMunFG>4115200</cMunFG>
+                  <tpImp>1</tpImp>
+                  <tpEmis>1</tpEmis>
+                  <cDV>7</cDV>
+                  <tpAmb>2</tpAmb>
+                  <finNFe>1</finNFe>
+                  <indFinal>1</indFinal>
+                  <indPres>9</indPres>
+                  <procEmi>0</procEmi>
+                  <verProc>Bling 1.0</verProc>
+                  </ide>
+                  <emit>
+                  <CNPJ>08328657000194</CNPJ>
+                  <xNome>Anymarket DB1</xNome>
+                  <enderEmit>
+                  <xLgr>Av. Advogado Horacio Raccanello Filho</xLgr>
+                  <nro>5410</nro>
+                  <xBairro>Novo Centro</xBairro>
+                  <cMun>4115200</cMun>
+                  <xMun>Maringa</xMun>
+                  <UF>PR</UF>
+                  <CEP>87020035</CEP>
+                  <cPais>1058</cPais>
+                  <xPais>Brasil</xPais>
+                  <fone>4430336300</fone>
+                  </enderEmit>
+                  <IE>9038912540</IE>
+                  <CRT>1</CRT>
+                  </emit>
+                  <dest>
+                  <CPF>42159270130</CPF>
+                  <xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome>
+                  <enderDest>
+                  <xLgr>Praca Amabile Giroldo</xLgr>
+                  <nro>100</nro>
+                  <xCpl>maca, area, avo, avo</xCpl>
+                  <xBairro>Zona 04</xBairro>
+                  <cMun>4115200</cMun>
+                  <xMun>Maringa</xMun>
+                  <UF>PR</UF>
+                  <CEP>87014280</CEP>
+                  <cPais>1058</cPais>
+                  <xPais>Brasil</xPais>
+                  <fone>4432202020</fone>
+                  </enderDest>
+                  <indIEDest>9</indIEDest>
+                  <email>ttest.7y5snb2-oge3dcojrgmztcmbt@mail.com</email>
+                  </dest>
+                  <det nItem="1">
+                  <prod>
+                  <cProd>AKCI00990ZPTODAVIDA</cProd>
+                  <cEAN>SEM GTIN</cEAN>
+                  <xProd>NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xProd>
+                  <NCM>01029000</NCM>
+                  <CFOP>5102</CFOP>
+                  <uCom>1</uCom>
+                  <qCom>1.0000</qCom>
+                  <vUnCom>160.00</vUnCom>
+                  <vProd>160.00</vProd>
+                  <cEANTrib>SEM GTIN</cEANTrib>
+                  <uTrib>1</uTrib>
+                  <qTrib>1.0000</qTrib>
+                  <vUnTrib>160.00</vUnTrib>
+                  <indTot>1</indTot>
+                  <nItemPed>1</nItemPed>
+                  </prod>
+                  <imposto>
+                  <vTotTrib>25.92</vTotTrib>
+                  <ICMS>
+                  <ICMSSN102>
+                  <orig>0</orig>
+                  <CSOSN>400</CSOSN>
+                  </ICMSSN102>
+                  </ICMS>
+                  <IPI>
+                  <cEnq>301</cEnq>
+                  <IPINT>
+                  <CST>52</CST>
+                  </IPINT>
+                  </IPI>
+                  <PIS>
+                  <PISNT>
+                  <CST>07</CST>
+                  </PISNT>
+                  </PIS>
+                  <COFINS>
+                  <COFINSNT>
+                  <CST>07</CST>
+                  </COFINSNT>
+                  </COFINS>
+                  </imposto>
+                  </det>
+                  <total>
+                  <ICMSTot>
+                  <vBC>0.00</vBC>
+                  <vICMS>0.00</vICMS>
+                  <vICMSDeson>0</vICMSDeson>
+                  <vFCP>0.00</vFCP>
+                  <vBCST>0.00</vBCST>
+                  <vST>0.00</vST>
+                  <vFCPST>0.00</vFCPST>
+                  <vFCPSTRet>0.00</vFCPSTRet>
+                  <vProd>160.00</vProd>
+                  <vFrete>0.00</vFrete>
+                  <vSeg>0.00</vSeg>
+                  <vDesc>0.00</vDesc>
+                  <vII>0.00</vII>
+                  <vIPI>0.00</vIPI>
+                  <vIPIDevol>0.00</vIPIDevol>
+                  <vPIS>0.00</vPIS>
+                  <vCOFINS>0.00</vCOFINS>
+                  <vOutro>0.00</vOutro>
+                  <vNF>160.00</vNF>
+                  <vTotTrib>25.92</vTotTrib>
+                  </ICMSTot>
+                  </total>
+                  <transp>
+                  <modFrete>0</modFrete>
+                  <transporta>
+                  <xNome>DESCONHECIDO</xNome>
+                  </transporta>
+                  <vol>
+                  <pesoL>0.000</pesoL>
+                  <pesoB>0.000</pesoB>
+                  </vol>
+                  </transp>
+                  <cobr>
+                  <fat>
+                  <nFat>562465425</nFat>
+                  <vOrig>160.00</vOrig>
+                  <vDesc>0</vDesc>
+                  <vLiq>160.00</vLiq>
+                  </fat>
+                  <dup>
+                  <nDup>001</nDup>
+                  <dVenc>2019-09-11</dVenc>
+                  <vDup>160.00</vDup>
+                  </dup>
+                  </cobr>
+                  <pag>
+                  <detPag>
+                  <tPag>01</tPag>
+                  <vPag>160.00</vPag>
+                  </detPag>
+                  </pag>
+                  <infAdic>
+                  <infCpl>Total aproximado de tributos: R$ 25,92 (16,20%) Federais R$ 6,72 (4,20%) Estaduais R$ 19,20 (12,00%) . Fonte IBPT.<br /></infCpl>
+                  </infAdic>
+                  <infRespTec>
+                  <CNPJ>01056417000139</CNPJ>
+                  <xContato>Jonatan Fracasso da Silva</xContato>
+                  <email>fiscal@bling.com.br</email>
+                  <fone>05430550479</fone>
+                  </infRespTec>
+                  </infNFe>
+                  <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+                  <SignedInfo>
+                  <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+                  <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+                  <Reference URI="#NFe41190908328657000194550015624654251041433087">
+                  <Transforms>
+                  <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+                  <Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+                  </Transforms>
+                  <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+                  <DigestValue>JYjiWB7sFoiM7jQckhdvLsSBpQw=</DigestValue>
+                  </Reference>
+                  </SignedInfo>
+                  <SignatureValue>H6DfZXCiFcypfHAXdaotLTU2hSJxaCCDIEHkU84eioyd4VVSqYu/0FbBAYnmlb5xGbqio59fzlZ2P7OvR4UogYcW32jT95HfuB2wkUxIbCPzI14uEQzm7Sve8NG+0H0Oge1U/vTApeZHcGfVsQiGCRItvDUVuGJ50qPCGONz1BV6yBO9cr9WxtA2AhOklb4uShPrb+08W+LZ2ReYKLND5vJVofEmUE9jU1hgFGm/WM2zMgauKNqgJr2/nlPI13PxyxYZ6QTC7EenkEJdr+L9ziWzN5haFQ7mw2jtVQOwpnU5KQBbfmpyWZKQ9sUDPOrnr9y73iKGrPAf6cvTNEhZAA==</SignatureValue>
+                  <KeyInfo>
+                  <X509Data>
+                  <X509Certificate>MIIHwDCCBaigAwIBAgIIRD0ZAig/4BIwDQYJKoZIhvcNAQELBQAwgYkxCzAJBgNVBAYTAkJSMRMwEQYDVQQKEwpJQ1AtQnJhc2lsMTQwMgYDVQQLEytBdXRvcmlkYWRlIENlcnRpZmljYWRvcmEgUmFpeiBCcmFzaWxlaXJhIHYyMRIwEAYDVQQLEwlBQyBTT0xVVEkxGzAZBgNVBAMTEkFDIFNPTFVUSSBNdWx0aXBsYTAeFw0xOTAyMjgxODA0MTBaFw0yMDAyMjgxNzM1MDBaMIHfMQswCQYDVQQGEwJCUjETMBEGA1UEChMKSUNQLUJyYXNpbDE0MDIGA1UECxMrQXV0b3JpZGFkZSBDZXJ0aWZpY2Fkb3JhIFJhaXogQnJhc2lsZWlyYSB2MjESMBAGA1UECxMJQUMgU09MVVRJMRswGQYDVQQLExJBQyBTT0xVVEkgTXVsdGlwbGExGjAYBgNVBAsTEUNlcnRpZmljYWRvIFBKIEExMTgwNgYDVQQDEy9EQjEgU0lTVEVNQVMgRSBDT05TVUxUT1JJQSBMVERBLjowODMyODY1NzAwMDE5NDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJAMfqYQn+K1ZVA1mikdSoUdeP9JU1zcj9JW30yqcRgHqYeNvVZwSPGSpNBURTpdJq+a2QEUXrqe9xLDCWNbPV6M4Br3cq7JOSc4lC31gt6JxhBXrm9cRQvcu0Kyh7h8DF8aHcFEW2rr8xGXQdiguR3Gs1bgPUdpqRQNQ5nq5oaoGdbIjbRWkNLSV9LXZP/PW6KIRdCMBby4ly7TbEt1WwU2az625TOnlVLL0ISHKdNAcKwtDM53OEq+FXp4nmfO7LULo5IB57Zzj97Xz4wyNyir/9nh1lX3cc/i8AlcTYVPtK1u/h1Id/UZK53mb9yo0FMLRf+nHXI9q7g7AUjZHycCAwEAAaOCAtIwggLOMFQGCCsGAQUFBwEBBEgwRjBEBggrBgEFBQcwAoY4aHR0cDovL2NjZC5hY3NvbHV0aS5jb20uYnIvbGNyL2FjLXNvbHV0aS1tdWx0aXBsYS12MS5wN2IwHQYDVR0OBBYEFGbSSAwEwrPZAgM8DFShvCbMJ+50MAkGA1UdEwQCMAAwHwYDVR0jBBgwFoAUNa4xFPZe0npPWP40qBpnlwrEmwcwXgYDVR0gBFcwVTBTBgZgTAECASYwSTBHBggrBgEFBQcCARY7aHR0cHM6Ly9jY2QuYWNzb2x1dGkuY29tLmJyL2RvY3MvZHBjLWFjLXNvbHV0aS1tdWx0aXBsYS5wZGYwgd4GA1UdHwSB1jCB0zA+oDygOoY4aHR0cDovL2NjZC5hY3NvbHV0aS5jb20uYnIvbGNyL2FjLXNvbHV0aS1tdWx0aXBsYS12MS5jcmwwP6A9oDuGOWh0dHA6Ly9jY2QyLmFjc29sdXRpLmNvbS5ici9sY3IvYWMtc29sdXRpLW11bHRpcGxhLXYxLmNybDBQoE6gTIZKaHR0cDovL3JlcG9zaXRvcmlvLmljcGJyYXNpbC5nb3YuYnIvbGNyL0FDU09MVVRJL2FjLXNvbHV0aS1tdWx0aXBsYS12MS5jcmwwDgYDVR0PAQH/BAQDAgXgMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDCBugYDVR0RBIGyMIGvgRhjb250cm9sYWRvcmlhQGRiMS5jb20uYnKgJQYFYEwBAwKgHBMaQUxFWEFORFJFIERBIFNJTFZBIFJFWkVOREWgGQYFYEwBAwOgEBMOMDgzMjg2NTcwMDAxOTSgOAYFYEwBAwSgLxMtMDYxMDE5ODAwMzAwNzQ1Nzk2MzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwoBcGBWBMAQMHoA4TDDAwMDAwMDAwMDAwMDANBgkqhkiG9w0BAQsFAAOCAgEAYTnjjqwxA3Yg4YYBf+tArw2SshV2IXb5IqqmFtRWBiHlIgwwc8VgGsJEM8nJwFX5htPTtySX4RCETTbh/GKBYjp42T+v1udKuDYohoTdm1TrYvarXkFXKqQ6HBzDFtLPo4VfsKbAe/31S5OtYvb536Qtj6e+5S000RH5nCHsfcqgShZHkdLuMpQqjawaCVccfERlK/3iN4S9pYryy+zgeb158rNOKUZU4DVj2yhNO3JKvUmvPuyHpUnAqGA35qZkCSLCPl4AEi4RyjCE5DAwGp20gMF5xXZwZD+rszTzILpXUfyqAjL2uarkSJrhRmXGT7i2cQHzez2HrLzLBI8vgalzk98RcX1GNiQlUueEWH2xseh/nyi3YjOkFIyhzvQuACTs6Ou4xYPW/3xkclNivc44lomEzmT16yZrrxD7AdlH4om1+Hrcr216AiekIO72Ggl2bjKt10vFtb9NlEmrpBq9+KcKbL4v2QNOESHsDQXnxgi0XuECdw3Jkj4X0IYbN8h4RkKvYiCTi5bgLH685XkU2WgGYAtvTAlmIvTlMDhskKv6cmHp5C0b2GPvC8WMncq5bwNqjLDhwH/qSsqsJT7s2qypj+mzokuMpjJ8noVy5LU0on6p5QOnO31mMbYmvHFbhbigl9OHe94liqVnJdChVlQD3j74EelQwZjCrZw=</X509Certificate>
+                  </X509Data>
+                  </KeyInfo>
+                  </Signature>
+                  </NFe>
+                  <protNFe versao="4.00">
+                  <infProt>
+                  <tpAmb>2</tpAmb>
+                  <verAplic>PR-v4_4_9</verAplic>
+                  <chNFe>41190908328657000194550015624654251041433087</chNFe>
+                  <dhRecbto>2019-09-11T15:57:57-03:00</dhRecbto>
+                  <nProt>141190000835627</nProt>
+                  <digVal>JYjiWB7sFoiM7jQckhdvLsSBpQw=</digVal>
+                  <cStat>100</cStat>
+                  <xMotivo>Autorizado o uso da NF-e</xMotivo>
+                  </infProt>
+                  </protNFe>
+                  </nfeProc>
+  '/order/{idInMarketPlace}':
+    parameters:
+      - schema:
+          type: string
+        name: idInMarketPlace
+        in: path
+        required: true
+        description: Código do pedido no marketplace
+    get:
+      summary: '/order/{idInMarketPlace}'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiOrder'
+      operationId: get-order-idInMarketPlace
+      parameters:
+        - schema:
+            type: string
+          in: query
+          name: idAccount
+          description: Código da conta
+          required: true
+      tags:
+        - Pedidos
+      description: 'A chamada de consulta do pedido consiste em obter os dados mais atualizados do pedido. A notificação será encaminhada quando o ANYMARKET for retentar algum pedido criticado ou caso o seller realize o force de forma manual. '
+  /order/updateOrderStatusInMarketPlace:
+    put:
+      summary: /order/updateOrderStatusInMarketPlace
+      operationId: put-order-updateOrderStatusInMarketPlace
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: boolean
+              examples:
+                example-1:
+                  value: true
+      description: |
+        O endpoint será acionado quando o seller realizar alguma alteração de status de pedido. Com isso será encaminhado a notificação no endpoint acima passando algumas informações referente ao pedido.
+        Assim que o marketplace receber a chamada o mesmo deve consultar o pedido em questão na nossa API afim de coletar os dados mais atualizados do pedido e assim confirmar que a atualização ocorreu sem problemas.
+
+        <!-- theme: warning -->
+        > #### Ponto de Atenção!
+        >
+        > O marketplace deve estar preparado quando ocorrer um "salto de status", ou seja, quando o seller realizar uma mudança de status de "PAGO" direto para "ENVIADO" ou "CONCLUÍDO".
+        >É importante que o marketplace tenha esse cenário contemplado para evitar problemas futuros de integração. 
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoteApiUpdateOrderStatus'
+            examples:
+              example-1:
+                value:
+                  orderId: 0
+                  idInMarketplace: string
+                  oldStatus: PAID
+                  currentStatus: INVOICED
+        description: ''
+      tags:
+        - Pedidos
+  /categories:
+    get:
+      summary: /categories
+      tags:
+        - Vínculo de Categoria
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categories'
+              examples:
+                Example:
+                  value:
+                    - codeInMarketplace: '2551'
+                      name: Decoração
+      operationId: get-categories
+      description: |-
+        Busca do primeiro nível da arvore de categorias do marketplace.
+
+        O reponse será um array contendo o primeiro nível de categoria do marketplace.
+      parameters:
+        - schema:
+            type: string
+          in: query
+          name: accountIdentifier
+          description: Identificação da conta
+  '/categories/{codeInMarketPlace}':
+    parameters:
+      - schema:
+          type: string
+        name: codeInMarketPlace
+        in: path
+        required: true
+    get:
+      summary: '/categories/{codeInMarketPlace}'
+      tags:
+        - Vínculo de Categoria
+      operationId: get-categories-details-categoryIdInMarketplace
+      description: Consulta categoria no marketplace
+      parameters:
+        - schema:
+            type: string
+          in: query
+          name: accountIdentifier
+          description: Identificação da conta
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDetails'
+              examples:
+                Category Details | Subcategorias:
+                  value:
+                    codeInMarketPlace: 2551
+                    name: Beleza e Perfumaria
+                    isReceivingItens: true
+                    variationsMandatory: true
+                    canBeSelected: true
+                    children:
+                      - codeInMarketplace: 2554
+                        name: Maquiagem
+                      - codeInMarketplace: 2555
+                        name: Perfumes
+                'Category Details | Ultimo nível ':
+                  value:
+                    codeInMarketPlace: 2557
+                    name: Porta-Retratos
+                    isReceivingItens: true
+                    variationsMandatory: true
+                    canBeSelected: true
+                    children: []
+  '/categories/attributes/{codeInMarketPlace}':
+    parameters:
+      - schema:
+          type: string
+        name: codeInMarketPlace
+        in: path
+        required: true
+    get:
+      summary: '/categories/attributes/{codeInMarketPlace}'
+      tags:
+        - Vínculo de Categoria
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryAttribute'
+              examples:
+                Atributos:
+                  value:
+                    - codeInMarketPlace: '665'
+                      description: Sabor
+                      required: true
+                      recommended: false
+                      type: STRING_INPUT
+                    - codeInMarketPlace: '674'
+                      description: Tamanho
+                      required: false
+                      recommended: false
+                      type: NUMBER_INPUT
+                    - codeInMarketPlace: '295'
+                      description: Cor
+                      required: false
+                      recommended: false
+                      type: SELECT_INPUT
+                      values:
+                        - codeInMarketPlace: '2954'
+                          name: Azul
+                        - codeInMarketPlace: '2953'
+                          name: Vermelho
+                        - codeInMarketPlace: '2952'
+                          name: Verde
+                        - codeInMarketPlace: '2951'
+                          name: Amarelo
+      operationId: get-categories-attributes-id
+      description: |-
+        Quando o ANYMARKET disparar a notificação para obter os dados de características o marketplace deve retornar um payload com o seguinte formato, lembrando que pode conter 3 tipos de "type"
+
+        ​
+        STRING_INPUT = Campo aberto em que o seller pode digitar apenas valores do tipo "string".
+
+        NUMBER_INPUT = ​Campo aberto em que o seller pode digitar apenas valores do tipo "number".
+
+        SELECT_INPUT = Será aberto um dropdown para o seller escolher os valores disponibilizados pelo marketplace.
+
+
+        Pontos de atenção:
+
+        A visualização dos valores que o seller realizou o de/para das características ficarão disponíveis no momento em que for enviado o remote canSave e quando o marketplace vier consultar a transmissão do anuncio em questão. As informações ficarão dispostas no conjunto “atributes”:
+        Deixo abaixo um exemplo de uma parte do JSON enviado na chamada do remote /canSave, contendo o conjunto "atributes" já com os valores que o seller realizou o de/para. Lembrando que os valores no conteúdo JSON é os valores disponibilizados pelo marketplace.
+
+        ```json
+        ......
+        "attributes": {
+        "92": "20",
+        "5854": "50kg",
+        "455": "78"
+        }
+        ......
+        ```
+  /brands:
+    get:
+      summary: /brands
+      tags:
+        - Vínculo de Marca
+      operationId: get-brands
+      description: |-
+        ### Informação
+        A vinculação de marcas nada mais é que um DE/PARA que o seller ira realizar na camada ANYMARKET, informando ao marketplace que a marca "X" corresponde a marca "Y" do marketplace em questão. Nesse cenário, o parceiro receberá a chamada GET para que o ANYMARKET possa obter a informação das marcas existentes no marketplace, onde devemos receber no response um array contendo o codeInMarketplace (Id da Marca no MARKETPLACE) e o name (Nome da Marca no Marketplace) e esse DE/PARA ficará salvo na base ANYMARKET.
+
+        Ao publicar um novo produto para aquela marca em específico, será enviado os dados referente a marca aqui no ANYMARKET e tambem um atributo no JSON com nome de: `idInMarketplace` que é referente ao código da marca no MARKETPLACE.
+
+        ### Objetivo
+        Obter as marcas disponíveis no marketplace para vinculação.
+        O retorno esperado será um array contendo as marcas disponíveis para vinculação. 
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Brand'
+              examples:
+                Example:
+                  value:
+                    - codeInMarketplace: string
+                      name: string
+  '/product/{partnerId}':
+    get:
+      summary: '/product/{partnerId}'
+      tags:
+        - Vínculo de SKU
+      operationId: get-product
+      description: Consulta produto no marketplace
+      parameters:
+        - schema:
+            type: integer
+            format: int64
+            minimum: 0
+            exclusiveMaximum: true
+          in: query
+          name: idAccount
+          description: Código da conta no marketplace
+        - schema:
+            type: string
+            enum:
+              - COST
+              - SKU_MARKETPLACE
+              - SKU
+          in: query
+          name: definitionScope
+          description: Tipo da regra de preço do produto
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VinculoSku'
+              examples:
+                example-1:
+                  value:
+                    idInMarketplace: SKUFROMMKT
+                    publicationStatus: ACTIVE
+                    marketplaceStatus: STATUS_NO_MKT_SKM2
+                    skuInMarketplace: SKU_IN_MKT_MKT_SKM2
+                    title: PRODUTO
+                    ean: '456789123456'
+                    priceFactor: 1
+                    price: 10
+                    discountPrice: 9
+    parameters:
+      - schema:
+          type: string
+        name: partnerId
+        in: path
+        required: true
+  /variations/types:
+    get:
+      summary: /variations/types
+      tags:
+        - Vínculo de Variação
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/variation_response'
+              examples:
+                example-1:
+                  value:
+                    codeInMarketplace: COLOR_VARIANT
+                    name: Cor
+                    values:
+                      - codeInMarketplace: RED
+                        name: Vermelho
+                      - codeInMarketplace: BLUE
+                        name: Azul
+      operationId: get-variations-types
+      description: Consulta os tipos e valores possíveis para o seller realizar o de/para.
+components:
+  schemas:
+    Attributes:
+      title: Attributes
+      type: object
+      properties:
+        String:
+          type: string
+      examples:
+        - cor: azul
+          tamanho: grande
+          material: inox
+    AvailableStockDTO:
+      title: AvailableStockDTO
+      type: object
+      properties:
+        amount:
+          type: number
+          format: double
+          minimum: 0
+        availableAmount:
+          type: number
+          format: double
+          minimum: 0
+        cost:
+          type: number
+          format: double
+          minimum: 0
+        totalReservation:
+          type: number
+          format: double
+          minimum: 0
+        physicalAmount:
+          type: number
+          format: double
+          minimum: 0
+        reservedPending:
+          type: number
+          format: double
+          minimum: 0
+        reservedPaid:
+          type: number
+          format: double
+          minimum: 0
+        totalInInvoicedStatus:
+          type: number
+          format: double
+          minimum: 0
+        stockLocal:
+          format: double
+          type: string
+        additionalTime:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 999
+    Brand:
+      title: Brand
+      type: object
+      properties:
+        codeInMarketplace:
+          type: string
+        name:
+          type: string
+      examples:
+        - codeInMarketplace: string
+          name: string
+    CategoryDetails:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          codeInMarketPlace: 2551
+          name: Beleza e Perfumaria
+          isReceivingItens: true
+          variationsMandatory: true
+          canBeSelected: true
+          children:
+            - codeInMarketplace: 2554
+              name: Maquiagem
+            - codeInMarketplace: 2555
+              name: Perfumes
+        example-2:
+          codeInMarketPlace: string
+          name: string
+          isReceivingItens: true
+          variationsMandatory: true
+          canBeSelected: true
+          children:
+            - codeInMarketplace: string
+              name: string
+      properties:
+        codeInMarketPlace:
+          type: string
+        name:
+          type: string
+          minLength: 1
+        isReceivingItens:
+          type: boolean
+        variationsMandatory:
+          type: boolean
+        canBeSelected:
+          type: boolean
+        children:
+          type: array
+          uniqueItems: true
+          minItems: 1
+          items:
+            type: object
+            properties:
+              codeInMarketplace:
+                type: string
+              name:
+                type: string
+                minLength: 1
+            required:
+              - codeInMarketplace
+              - name
+      required:
+        - codeInMarketPlace
+        - name
+        - isReceivingItens
+        - variationsMandatory
+        - canBeSelected
+        - children
+    CategoryAssociation:
+      title: CategoryAssociation
+      type: object
+      properties:
+        idCategoryMarketplace:
+          type: string
+        idCategoryAnymarket:
+          type: integer
+          format: int64
+          minimum: 0
+        accountIdentifier:
+          type: string
+    CategoryAttribute:
+      type: array
+      description: ''
+      minItems: 1
+      uniqueItems: true
+      items:
+        type: object
+        required:
+          - codeInMarketPlace
+          - description
+          - required
+          - recommended
+          - type
+          - values
+        properties:
+          codeInMarketPlace:
+            type: string
+            minLength: 1
+          description:
+            type: string
+            minLength: 1
+          required:
+            type: boolean
+          recommended:
+            type: boolean
+          type:
+            type: string
+            minLength: 1
+          values:
+            type: array
+            uniqueItems: true
+            minItems: 1
+            items:
+              required:
+                - codeInMarketPlace
+                - name
+              properties:
+                codeInMarketPlace:
+                  type: string
+                  minLength: 1
+                name:
+                  type: string
+                  minLength: 1
+      x-examples:
+        example-1:
+          - codeInMarketPlace: '665'
+            description: Sabor
+            required: true
+            recommended: false
+            type: STRING_INPUT
+          - codeInMarketPlace: '674'
+            description: Tamanho
+            required: false
+            recommended: false
+            type: STRING_INPUT
+          - codeInMarketPlace: '295'
+            description: Cor
+            required: false
+            recommended: false
+            type: SELECT_INPUT
+            values:
+              - codeInMarketPlace: '2954'
+                name: Azul
+    CategoryDataDefinition:
+      title: CategoryDataDefinition
+      type: object
+      properties:
+        codeInMarketPlace:
+          type: string
+        name:
+          type: string
+        dataDefinitionType:
+          type: string
+          enum:
+            - STRING_INPUT
+            - SELECT_INPUT
+            - NUMBER_INPUT
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+    MarketPlace:
+      title: MarketPlace
+      type: string
+      description: Identificador do Marketplace
+      enum:
+        - B2W
+        - CNOVA
+        - ECOMMERCE
+        - MERCADO_LIVRE
+        - WALMART
+        - GFG
+        - NETSHOES
+        - VTEX;
+      examples: []
+    ModuleConfiguration:
+      title: ModuleConfiguration
+      type: object
+      examples:
+        - id: 0
+          active: true
+          templateId: 0
+          accountName: string
+          discountType: PERCENT
+          useSandbox: true
+          accountDefault: true
+          priceFactor: 0
+          discountValue: 0
+          initialDateForOrderImport: 25-01-2021
+          updatePriceStockStatus: true
+          additionOfFreight: 0
+          field1: value1
+          field2: value2
+      description: |+
+
+      x-examples:
+        example-1:
+          id: 0
+          active: true
+          templateId: 0
+          accountName: string
+          discountType: PERCENT
+          useSandbox: true
+          accountDefault: true
+          priceFactor: 0
+          discountValue: 0
+          initialDateOrderImport: 25-01-2021
+          updatePriceStockStatus: true
+          additionOfFreight: 0
+          field1: value1
+          field2: value2
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Id do ANYMARKET
+          nullable: true
+        active:
+          type: boolean
+          description: Status da conta
+        templateId:
+          type: integer
+          format: int64
+          description: Código do template padrão
+          nullable: true
+        accountName:
+          type: string
+          minLength: 0
+          maxLength: 255
+          description: Nome do usuário no marketplace
+        discountType:
+          type: string
+          minLength: 0
+          maxLength: 255
+          description: Tipo de desconto
+          default: PERCENT
+          enum:
+            - PERCENT
+            - VALUE
+        useSandbox:
+          type: boolean
+          description: Informa se o uso é em Sandbox
+        accountDefault:
+          type: boolean
+          description: Informa se a conta é a padrão para o marketplace
+        priceFactor:
+          type: number
+          format: double
+          minimum: 0
+          description: Fator de preço
+        discountValue:
+          type: number
+          format: double
+          minimum: 0
+          description: Valor padrão de desconto
+        initialDateOrderImport:
+          type: string
+          format: date
+          description: Data inicial para a importação de pedidos
+          example: 31-12-2021
+          nullable: true
+        updatePriceStockStatus:
+          type: boolean
+          description: Permite ou não atualizar o preço e status do estoque
+        additionOfFreight:
+          type: number
+          format: double
+          minimum: 0
+          description: Valor adicional de frete
+        field1:
+          type: string
+          description: Campos customizados para atender especifidade do MarketPlace
+        field2:
+          type: string
+          description: Campos customizados para atender especifidade do MarketPlace
+      required:
+        - id
+        - active
+        - accountName
+        - discountType
+        - useSandbox
+        - accountDefault
+        - priceFactor
+        - discountValue
+        - initialDateOrderImport
+        - updatePriceStockStatus
+        - additionOfFreight
+    saveAccount:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          id: 0
+          active: true
+          templateId: 0
+          accountName: string
+          discountType: PERCENT
+          useSandbox: true
+          accountDefault: true
+          priceFactor: 0
+          discountValue: 0
+          initialDateForOrderImport: 25-01-2021
+          updatePriceStockStatus: true
+          additionOfFreight: 0
+          user:
+            token: LG1234567891234R-987654321
+            country: null
+          field1: value1
+          field2: value2
+      title: ''
+      properties:
+        id:
+          type: number
+          description: Id do ANYMARKET
+        active:
+          type: boolean
+          description: Status da conta
+        templateId:
+          type: number
+          description: Código do template padrão
+        accountName:
+          type: string
+          description: Nome do usuário no marketplace
+          minLength: 0
+          maxLength: 255
+        discountType:
+          type: string
+          minLength: 0
+          maxLength: 255
+          description: Tipo de desconto
+          enum:
+            - PERCENT
+            - VALUE
+          default: PERCENT
+        useSandbox:
+          type: boolean
+          description: Informa se o uso é em Sandbox
+        accountDefault:
+          type: boolean
+          description: Informa se a conta é a padrão para o marketplace
+        priceFactor:
+          type: number
+          description: Fator de preço
+          minimum: 0
+          format: double
+        discountValue:
+          type: number
+          description: Valor padrão de desconto
+          minimum: 0
+          format: double
+        initialDateForOrderImport:
+          type: string
+          minLength: 1
+          description: Data inicial para a importação de pedidos
+          nullable: true
+        updatePriceStockStatus:
+          type: boolean
+          description: Permite ou não atualizar o preço e status do estoque
+        additionOfFreight:
+          type: number
+          description: Valor adicional de frete
+          format: double
+        user:
+          type: object
+          required:
+            - token
+          properties:
+            token:
+              type: string
+              minLength: 1
+              description: Token do Seller no Anymarket
+            country:
+              nullable: true
+        field1:
+          type: string
+          minLength: 1
+          description: Campos customizados para atender especifidade do MarketPlace
+        field2:
+          type: string
+          minLength: 1
+          description: Campos customizados para atender especifidade do MarketPlace
+      required:
+        - id
+        - active
+        - accountName
+        - discountType
+        - useSandbox
+        - accountDefault
+        - priceFactor
+        - discountValue
+        - initialDateForOrderImport
+        - updatePriceStockStatus
+        - additionOfFreight
+        - user
+    PriceScope:
+      title: PriceScope
+      type: string
+    Product:
+      description: ''
+      type: object
+      x-examples: {}
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        model:
+          type: string
+          minLength: 1
+        nbm:
+          type: object
+          required:
+            - id
+            - description
+          properties:
+            id:
+              type: string
+              format: int64
+            description:
+              type: string
+              minLength: 1
+        videoUrl:
+          format: int32
+          type: string
+        definitionPriceScope:
+          type: string
+          enum:
+            - COST
+            - SKU_MARKETPLACE
+            - SKU
+        characteristics:
+          type: array
+          uniqueItems: true
+          minItems: 1
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+                format: int32
+                minimum: 0
+              name:
+                type: string
+                minLength: 1
+              value:
+                type: string
+                minLength: 1
+            required:
+              - index
+              - name
+              - value
+        origin:
+          type: object
+          required:
+            - id
+            - name
+          properties:
+            id:
+              type: integer
+              format: int32
+              minimum: 0
+            name:
+              type: string
+              minLength: 1
+              enum:
+                - NACIONAL
+                - ESTRANGEIRA_IMPORTACAO_DIRETA
+                - ESTRANGEIRA_ADQUIRIDA_NO_MERCADO_INTERNO
+                - NACIONAL_IMPORTACAO_MAIS_40_PORCENTO
+                - NACIONAL_CONFORMIDADE_AJUSTES
+                - NACIONAL_IMPORTACAO_MENOS_40_PORCENTO
+                - ESTRANGEIRA_SEM_SIMILAR_NACIONAL
+                - ESTRANGEIRA_ADQUIRIDA_NO_MERCADO_INTERNO_SEM_SIMILAR
+                - NACIONAL_IMPORTACAO_MAIS_70_PORCENTO
+        category:
+          type: object
+          required:
+            - id
+            - idInMarketplace
+            - name
+            - path
+          properties:
+            id:
+              type: integer
+              format: int64
+              minimum: 0
+            idInMarketplace:
+              type: string
+              minLength: 1
+            name:
+              type: string
+              minLength: 1
+            path:
+              type: string
+              minLength: 1
+        height:
+          type: number
+          format: double
+          minimum: 0
+        length:
+          type: number
+          format: double
+          minimum: 0
+        width:
+          type: number
+          format: double
+          minimum: 0
+        weight:
+          type: number
+          format: double
+          minimum: 0
+        images:
+          type: array
+          uniqueItems: true
+          minItems: 1
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                format: int64
+                minimum: 0
+              index:
+                type: integer
+                format: int32
+                minimum: 0
+              variation:
+                type: string
+                minLength: 1
+              thumbnailUrl:
+                type: string
+                minLength: 1
+              standardUrl:
+                type: string
+                minLength: 1
+              lowResolutionUrl:
+                type: string
+                minLength: 1
+              originalImage:
+                type: string
+                minLength: 1
+              url:
+                type: string
+                minLength: 1
+              statusMessage:
+                type: string
+              status:
+                type: string
+                minLength: 1
+                enum:
+                  - UNPROCESSED
+                  - PROCESSED
+                  - ERROR
+              main:
+                type: boolean
+              standardWidth:
+                type: string
+              standardHeight:
+                type: string
+              originalWidth:
+                type: string
+              originalHeight:
+                type: string
+            required:
+              - id
+              - index
+              - variation
+              - thumbnailUrl
+              - standardUrl
+              - lowResolutionUrl
+              - originalImage
+              - url
+              - status
+              - main
+              - standardWidth
+              - standardHeight
+              - originalWidth
+              - originalHeight
+        brand:
+          type: object
+          required:
+            - id
+            - idInMarketplace
+            - name
+            - partnerId
+          properties:
+            id:
+              type: number
+            idInMarketplace:
+              type: string
+              minLength: 1
+            name:
+              type: string
+              minLength: 1
+            partnerId:
+              type: string
+              minLength: 1
+        warrantyTime:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 999
+        warrantyText:
+          format: int32
+          type: string
+        priceFactor:
+          type: number
+          format: double
+          minimum: 0
+        calculatedPrice:
+          format: double
+          type: boolean
+        hasVariations:
+          format: double
+          type: boolean
+        gender:
+          type: string
+          enum:
+            - MALE
+            - FEMALE
+            - UNISSEX
+            - BOY
+            - GIRL
+        allowAutomaticSkuMarketplaceCreation:
+          type: boolean
+      required:
+        - id
+        - title
+        - description
+        - model
+        - nbm
+        - videoUrl
+        - definitionPriceScope
+        - characteristics
+        - origin
+        - category
+        - images
+        - brand
+        - warrantyTime
+        - warrantyText
+        - allowAutomaticSkuMarketplaceCreation
+      title: Product
+    SKU:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          id: 33652426
+          partnerId: '00889584736'
+          amount: null
+          ean: '7898414090938'
+          title: Nicho Elegance-Castro - Nacar
+          price: 399
+          sellPrice: 399
+          additionalTime: 0
+      examples: []
+      properties:
+        id:
+          type: integer
+          format: int64
+        partnerId:
+          type: string
+          minLength: 1
+        amount:
+          type: number
+          format: double
+          minimum: 0
+        ean:
+          type: string
+          minLength: 1
+        title:
+          type: string
+          minLength: 1
+        price:
+          type: number
+          format: double
+          minimum: 0
+        sellPrice:
+          type: number
+          format: double
+          minimum: 0
+        additionalTime:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 999
+        variations:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkuVariation'
+        product:
+          $ref: '#/components/schemas/Product'
+      required:
+        - id
+        - partnerId
+        - amount
+        - ean
+        - title
+        - price
+        - sellPrice
+        - additionalTime
+      title: SKU
+    SkuMarketplace:
+      type: object
+      description: ''
+      examples:
+        - id: 0
+          idInMarketplace: string
+          marketPlace: B2W
+          index: 0
+          publicationStatus: string
+          marketplaceStatus: string
+          transmissionStatus: string
+          errorMsg: string
+          skuMarketPlaceMessage:
+            message: string
+            key: string
+            parameters:
+              parameter1: value1
+              parameter2: value2
+          price: 0
+          priceFactor: 1
+          discountPrice: 0
+          skuInMarketplace: string
+          marketplaceItemCode: string
+          fields:
+            title: string
+            template: string
+            priceFactor: string
+            DISCOUNT_TYPE: string
+            DISCOUNT_VALUE: string
+            HAS_DISCOUNT: string
+            CONCAT_ATTRIBUTES: string
+            delivery_type: string
+            SHIPMENT: string
+            crossDocking: string
+            CUSTOM_DESCRIPTION: string
+            EAN: string
+            MANUFACTURING_TIME: string
+            VALUE: string
+            PERCENT: string
+            bronze_price: string
+            bronze_price_factor: string
+            buying_mode: string
+            category_with_variation: string
+            condition: string
+            free_price: string
+            free_price_factor: string
+            free_shipping: string
+            gold_premium_price: string
+            gold_premium_price_factor: string
+            gold_price: string
+            gold_price_factor: string
+            gold_pro_price: string
+            gold_pro_price_factor: string
+            gold_special_price: string
+            gold_special_price_factor: string
+            listing_type_id: string
+            shipping_local_pick_up: string
+            shipping_mode: string
+            silver_price: string
+            silver_price_factor: string
+          availableStock:
+            amount: 0
+            availableAmount: 0
+            cost: 0
+            totalReservation: 0
+            physicalAmount: 0
+            reservedPending: 0
+            reservedPaid: 0
+            totalInInvoicedStatus: 0
+            stockLocal: string
+            additionalTime: 0
+          attributes:
+            cor: azul
+            tamanho: grande
+            material: inox
+          idAccount: 0
+          accountName: string
+          origin: BIND
+          isCatalog: true
+          permalink: string
+          title: string
+          ean: string
+      title: SkuMarketplace
+      x-examples: {}
+      properties:
+        id:
+          type: integer
+          description: Id do anúncio no ANYMARKET
+          format: int64
+        idInMarketplace:
+          type: string
+          description: Id do anúncio no Marketplace
+          maxLength: 255
+          minLength: 0
+        marketPlace:
+          $ref: '#/components/schemas/MarketPlace'
+        index:
+          type: integer
+          description: Índice do anúncio por Marketplace
+          format: int64
+        publicationStatus:
+          type: string
+          description: Status da publicação
+        marketplaceStatus:
+          type: string
+          description: Status da publicação no marketplace
+        transmissionStatus:
+          type: string
+          description: Status da publicação no marketplace
+        errorMsg:
+          type: string
+        skuMarketPlaceMessage:
+          $ref: '#/components/schemas/SkuMarketPlaceMessage'
+        price:
+          type: number
+          description: Preço do anúncio
+          format: double
+          minimum: 0
+        priceFactor:
+          type: number
+          description: Markup da transmissão
+          format: double
+          minimum: 0
+          example: 1
+        discountPrice:
+          type: number
+          description: Preço com desconto do anúncio
+          format: double
+          minimum: 0
+        skuInMarketplace:
+          type: string
+          description: Sku do cliente no marketplace
+        marketplaceItemCode:
+          type: string
+          description: ''
+        fields:
+          $ref: '#/components/schemas/SkuMarketplaceField'
+        availableStock:
+          $ref: '#/components/schemas/AvailableStockDTO'
+        attributes:
+          $ref: '#/components/schemas/Attributes'
+        idAccount:
+          type: integer
+          description: Identificador do SKU no marketplace
+          format: int64
+          minimum: 0
+        accountName:
+          type: string
+          description: Identificador do SKU no marketplace
+        origin:
+          type: string
+          description: Identificador do SKU no marketplace
+          enum:
+            - BIND
+            - CREATE
+        isCatalog:
+          description: Código do anúncio no marketplace
+          type: boolean
+        permalink:
+          description: Código do anúncio no marketplace
+          type: string
+        title:
+          description: Código do anúncio no marketplace
+          type: string
+        ean:
+          type: string
+          description: Status da transmissão
+      required:
+        - marketPlace
+        - index
+        - publicationStatus
+        - price
+        - priceFactor
+        - skuInMarketplace
+        - marketplaceItemCode
+        - fields
+    SkuMarketPlaceMessage:
+      title: SkuMarketPlaceMessage
+      type: object
+      properties:
+        message:
+          type: string
+        key:
+          type: string
+        parameters:
+          type: object
+          properties:
+            string:
+              type: string
+      examples:
+        - message: string
+          key: string
+          parameters:
+            parameter1: value1
+            parameter2: value2
+    SkuVariation:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          id: 1456452
+          description: Nacar
+          type:
+            id: 8260
+            name: Cor
+            partnerId: null
+            visualVariation: true
+            values: []
+          partnerId: Nacar
+      examples: []
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+        idInMarketplace:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        type:
+          $ref: '#/components/schemas/SkuVariationType'
+        partnerId:
+          type: string
+          minLength: 1
+      required:
+        - id
+        - idInMarketplace
+        - description
+        - type
+        - partnerId
+      title: SkuVariation
+    SkuMarketplaceField:
+      type: object
+      description: Informações especificas do anúncio por marketplace
+      properties:
+        title:
+          type: string
+          description: 'B2W,WALMART,MERCADO LIVRE'
+          format: int64
+        template:
+          type: string
+          description: MERCADO LIVRE
+        priceFactor:
+          type: string
+          description: 'B2W,CNOVA,WALMART,ECOMMERCE,MERCADO LIVRE'
+          format: int64
+        DISCOUNT_TYPE:
+          type: string
+          description: 'B2W,CNOVA,WALMART,ECOMMERCE,MERCADO LIVRE'
+          format: int64
+        DISCOUNT_VALUE:
+          type: string
+          description: 'B2W,CNOVA,WALMART,ECOMMERCE,MERCADO LIVRE'
+          format: int64
+        HAS_DISCOUNT:
+          type: string
+          description: 'B2W,CNOVA,ECOMMERCE'
+          format: int64
+        CONCAT_ATTRIBUTES:
+          type: string
+          description: B2W
+          format: int64
+        delivery_type:
+          type: string
+          description: B2W
+          format: int64
+        SHIPMENT:
+          type: string
+          description: B2W
+          format: int64
+        crossDocking:
+          type: string
+          description: B2W
+          format: int64
+        CUSTOM_DESCRIPTION:
+          type: string
+          description: B2W
+          format: int64
+        EAN:
+          type: string
+          description: 'B2W,CNOVA'
+          format: int64
+        MANUFACTURING_TIME:
+          type: string
+          description: CNOVA
+          format: int64
+        VALUE:
+          type: string
+          description: 'WALMART,MERCADO LIVRE'
+          format: int64
+        PERCENT:
+          type: string
+          description: 'WALMART,MERCADO LIVRE'
+          format: int64
+        bronze_price:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        bronze_price_factor:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        buying_mode:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        category_with_variation:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        condition:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        free_price:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        free_price_factor:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        free_shipping:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        gold_premium_price:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        gold_premium_price_factor:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        gold_price:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        gold_price_factor:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        gold_pro_price:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        gold_pro_price_factor:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        gold_special_price:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        gold_special_price_factor:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        listing_type_id:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        shipping_local_pick_up:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        shipping_mode:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        silver_price:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+        silver_price_factor:
+          type: string
+          description: MERCADO LIVRE
+          format: int64
+      title: SkuMarketplaceField
+    SkuVariationType:
+      title: SkuVariationType
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+        idInMarketplace:
+          type: string
+        name:
+          type: string
+        partnerId:
+          type: string
+        visualVariation:
+          type: boolean
+    VariationType:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          codeInMarketplace: COLOR_VARIANT
+          name: Cor
+          values:
+            - codeInMarketplace: string
+              name: string
+            - codeInMarketplace: BLUE
+              name: Azul
+      examples: []
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+        idInMarketplace:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        partnerId:
+          type: string
+          minLength: 1
+        visualVariation:
+          type: boolean
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/Variation'
+      required:
+        - id
+        - idInMarketplace
+        - name
+        - partnerId
+        - visualVariation
+      title: VariationType
+    Variation:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          codeInMarketplace: COLOR_VARIANT
+          name: Cor
+          values:
+            - codeInMarketplace: string
+              name: string
+            - codeInMarketplace: BLUE
+              name: Azul
+      examples: []
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+        idInMarketplace:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        type:
+          $ref: '#/components/schemas/VariationType'
+        partnerId:
+          type: string
+          minLength: 1
+      required:
+        - idInMarketplace
+        - description
+        - partnerId
+      title: Variation
+    SkuMarketplaceCanSave:
+      description: ''
+      type: object
+      x-examples: {}
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+          description: ''
+        mainSkuMarketplace:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        catalog:
+          type: boolean
+        idInMarketplace:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          minLength: 1
+        marketplaceStatus:
+          type: string
+          minLength: 1
+        transmissionStatus:
+          type: string
+          minLength: 1
+        errorMsg:
+          type: string
+        skuMarketPlaceMessage:
+          $ref: '#/components/schemas/SkuMarketPlaceMessage'
+        idInSite:
+          type: string
+        fields:
+          $ref: '#/components/schemas/SkuMarketplaceField'
+        isCatalog:
+          type: boolean
+        permalink:
+          type: string
+        title:
+          type: string
+        ean:
+          type: string
+        skuInMarketplace:
+          type: string
+          minLength: 1
+        priceFactor:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        price:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        discountPrice:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        idAccount:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        accountName:
+          type: string
+          minLength: 1
+        marketPlace:
+          $ref: '#/components/schemas/MarketPlace'
+        stock:
+          $ref: '#/components/schemas/Stock'
+        attributes:
+          type: object
+          required:
+            - ATRIBUTO
+            - TESTE
+            - NOVO ATRIBUTO
+          properties:
+            ATRIBUTO:
+              type: string
+              minLength: 1
+            TESTE:
+              type: string
+              minLength: 1
+            NOVO ATRIBUTO:
+              type: string
+              minLength: 1
+        sku:
+          $ref: '#/components/schemas/SKU'
+      required:
+        - catalog
+        - idInMarketplace
+        - status
+        - marketplaceStatus
+        - transmissionStatus
+        - fields
+        - isCatalog
+        - skuInMarketplace
+        - priceFactor
+        - price
+        - discountPrice
+        - idAccount
+        - accountName
+        - attributes
+    Stock:
+      title: Stock
+      type: object
+      properties:
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        availableAmount:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        cost:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        totalReservation:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        physicalAmount:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        reservedPending:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        reservedPaid:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        totalInInvoicedStatus:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        stockLocal:
+          type: string
+        additionalTime:
+          type: integer
+          format: int32
+          minimum: 0
+          exclusiveMaximum: false
+          maximum: 999
+    SendPublication:
+      description: ''
+      type: object
+      x-examples: {}
+      properties:
+        idSkuMarketplace:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        idSkuMarketplaceMain:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        status:
+          type: string
+          minLength: 1
+          enum:
+            - UNPUBLISHED
+            - CLOSED
+            - CORRUPTED
+            - PAUSED
+            - WITHOUT_STOCK
+            - ACTIVE
+        onlySync:
+          type: boolean
+        idSku:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        availableAmount:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        idAccount:
+          type: integer
+          minimum: 0
+          exclusiveMaximum: true
+          format: int64
+        idProduct:
+          type: integer
+          minimum: 0
+          exclusiveMaximum: true
+          format: int64
+        skuInMarketplace:
+          type: string
+          minLength: 1
+        onlySyncPrice:
+          type: boolean
+        onlySyncStock:
+          type: boolean
+        onlySyncStatus:
+          type: boolean
+      required:
+        - idSkuMarketplace
+        - idSkuMarketplaceMain
+        - status
+        - onlySync
+        - idSku
+        - availableAmount
+        - idAccount
+        - idProduct
+        - skuInMarketplace
+        - onlySyncPrice
+        - onlySyncStock
+        - onlySyncStatus
+    PublicationResponse:
+      title: PublicationResponse
+      type: object
+      properties:
+        publicationStatus:
+          type: string
+          enum:
+            - UNPUBLISHED
+            - CLOSED
+            - CORRUPTED
+            - WITHOUT_STOCK
+            - ACTIVE
+        marketplaceStatus:
+          type: string
+        transmissionStatus:
+          type: string
+          enum:
+            - WAITING_SYNC
+            - SENDING
+            - PAUSING
+            - CLOSING
+            - ERROR
+            - ACTIVATING
+            - SYNCING
+            - OK
+    DeletePublication:
+      description: ''
+      type: object
+      x-examples: {}
+      x-internal: false
+      properties:
+        idSkuMarketplace:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        idSkuMarketplaceMain:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        status:
+          type: string
+          minLength: 1
+          enum:
+            - UNPUBLISHED
+            - CLOSED
+            - CORRUPTED
+            - PAUSED
+            - WITHOUT_STOCK
+            - ACTIVE
+        onlySync:
+          type: boolean
+        idSku:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        availableAmount:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        idAccount:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        idProduct:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        skuInMarketplace:
+          type: string
+          minLength: 1
+        onlySyncPrice:
+          type: boolean
+        onlySyncStock:
+          type: boolean
+        onlySyncStatus:
+          type: boolean
+      required:
+        - idSkuMarketplace
+        - onlySync
+        - idSku
+        - skuInMarketplace
+      title: ''
+    ConfigurationDTO:
+      title: ConfigurationDTO
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+          description: idAccount gerado pelo ANYMARKET
+        oi:
+          type: string
+          description: Organization Id - Indentificador da base do cliente no ANYMARKET
+        active:
+          type: boolean
+        templateId:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        accountName:
+          type: string
+        marketplace:
+          type: string
+        discountType:
+          type: string
+          minLength: 0
+          maxLength: 255
+          description: Tipo de desconto
+          default: PERCENT
+        useSandbox:
+          type: boolean
+        accountDefault:
+          type: boolean
+        priceFactor:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        discountValue:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        initialDateForOrderImport:
+          type: string
+          format: date
+        updatePriceStockStatus:
+          type: boolean
+        additionOfFreight:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        fields:
+          type: array
+          items:
+            type: string
+      required:
+        - active
+        - accountName
+        - discountType
+        - useSandbox
+        - accountDefault
+        - priceFactor
+        - discountValue
+        - initialDateForOrderImport
+        - updatePriceStockStatus
+        - additionOfFreight
+    ApiOrder:
+      description: ''
+      type: object
+      x-examples: {}
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        marketPlaceId:
+          type: string
+        marketPlaceNumber:
+          type: string
+        marketPlace:
+          type: string
+        partnerId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+          example: '"2022-07-03T10:00:00-03:00"'
+        paymentDate:
+          type: string
+          format: date-time
+          example: '"" ,"2022-03-07T10:10:00-03:00"'
+        cancelDate:
+          type: string
+          format: date-time
+        cancellationCode:
+          type: string
+          enum:
+            - WITHOUT_STOCK
+            - SHIPPING_ADDRESS
+            - CUSTOMER_EXCHANGE
+            - GENERAL_ADJUSTMENT
+            - CUSTOMER_RETURN
+            - BUYER_CANCELED
+            - OTHER
+        transmissionStatus:
+          type: string
+          enum:
+            - OK
+            - ERROR
+            - WAITING
+        status:
+          type: string
+          enum:
+            - PENDING
+            - PAID_WAITING_SHIP
+            - INVOICED
+            - PAID_WAITING_DELIVERY
+            - CONCLUDED
+            - CANCELED
+        marketPlaceUrl:
+          type: string
+        marketPlaceShipmentStatus:
+          type: string
+        invoice:
+          $ref: '#/components/schemas/ApiInvoice'
+        marketPlaceStatus:
+          type: string
+        marketPlaceStatusComplement:
+          type: string
+        discount:
+          type: number
+        freight:
+          type: number
+        productGross:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+        productNet:
+          type: number
+        total:
+          type: number
+        interestValue:
+          type: number
+        shipping:
+          $ref: '#/components/schemas/ApiShipping'
+        billingAddress:
+          $ref: '#/components/schemas/ApiBillingAddress'
+        buyer:
+          $ref: '#/components/schemas/ApiBuyer'
+        tracking:
+          $ref: '#/components/schemas/ApiBuyer'
+        payments:
+          type: array
+          uniqueItems: true
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ApiPayment'
+        items:
+          type: array
+          uniqueItems: true
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ApiOrderItem'
+        deliveryStatus:
+          type: string
+          enum:
+            - UNKNOWN
+            - IN_TRANSIT
+            - DELIVERED
+            - HOLD_FOR_PICKUP
+            - DELAYED
+            - DELIVERED_LATE
+        observation:
+          type: string
+        anymarketAddress:
+          $ref: '#/components/schemas/ApiAnymarketOrderAddress'
+        idAccount:
+          type: integer
+          minimum: 0
+          exclusiveMaximum: true
+        accountName:
+          type: string
+        shipmentExceptionDate:
+          type: string
+          format: date-time
+        shipmentExceptionDescription:
+          type: string
+      required:
+        - id
+        - partnerId
+        - createdAt
+        - paymentDate
+        - cancelDate
+        - cancellationCode
+        - transmissionStatus
+        - status
+        - marketPlaceUrl
+        - marketPlaceShipmentStatus
+        - invoice
+        - marketPlaceStatus
+        - marketPlaceStatusComplement
+        - discount
+        - freight
+        - productGross
+        - productNet
+        - total
+        - interestValue
+        - shipping
+        - billingAddress
+        - buyer
+        - tracking
+        - payments
+        - items
+        - deliveryStatus
+        - observation
+        - anymarketAddress
+    ApiInvoice:
+      title: ApiInvoice
+      type: object
+      properties:
+        accessKey:
+          type: string
+        series:
+          type: string
+        number:
+          type: string
+        date:
+          type: string
+          format: date-time
+        linkNfe:
+          type: string
+          format: date-time
+    ApiShipping:
+      title: ApiShipping
+      type: object
+      description: ''
+      properties:
+        city:
+          type: string
+          description: Cidade do Destinatário
+        state:
+          type: string
+          description: Estado do Destinatário
+        stateNameNormalized:
+          type: string
+        country:
+          type: string
+          description: País do Destinatário
+        countryAcronymNormalized:
+          type: string
+        countryNameNormalized:
+          type: string
+        number:
+          type: string
+          description: Numero do Destinatário
+        neighborhood:
+          type: string
+          description: Bairro do destinatário
+        street:
+          type: string
+          description: Rua do destinatário
+        comment:
+          type: string
+          description: Complemento
+        reference:
+          type: string
+          description: 'Referência '
+        zipCode:
+          type: string
+          description: CEP do Destinatário
+        address:
+          type: string
+          description: Endereço completo
+          example: '"Rua Teste, 100, apto 602, zona 07. Maringá-PR"'
+        promisedShippingTime:
+          type: string
+          format: date-time
+          description: Data estimada de Entrega
+        receiverName:
+          type: string
+          description: Nome do Recebedor
+    ApiBillingAddress:
+      title: ApiBillingAddress
+      type: object
+      description: ''
+      properties:
+        city:
+          type: string
+          description: Cidade (Endereço de Cobrança)
+        state:
+          type: string
+          description: Estado (Endereço de Cobrança)
+        stateNameNormalized:
+          type: string
+        country:
+          type: string
+          description: País (Endereço de Cobrança)
+        countryAcronymNormalized:
+          type: string
+        countryNameNormalized:
+          type: string
+        number:
+          type: string
+          description: Número (Endereço de Cobrança)
+        neighborhood:
+          type: string
+          description: Bairro (Endereço de Cobrança)
+        street:
+          type: string
+          description: Rua (Endereço de Cobrança)
+        comment:
+          type: string
+          description: Complemento (Endereço de Cobrança)
+        reference:
+          type: string
+          description: Referência (Endereço de Cobrança)
+        zipCode:
+          type: string
+          description: CEP do Endereço de Cobrança
+    ApiAnymarketOrderAddress:
+      title: ApiAnymarketOrderAddress
+      type: object
+      description: ''
+      properties:
+        country:
+          type: string
+        state:
+          type: string
+        city:
+          type: string
+        zipCode:
+          type: string
+        neighborhood:
+          type: string
+        address:
+          type: string
+        street:
+          type: string
+        number:
+          type: string
+        comment:
+          type: string
+        receiverName:
+          type: string
+        promisedShippingTime:
+          type: string
+          format: date-time
+    ApiBuyer:
+      title: ApiBuyer
+      type: object
+      properties:
+        Long:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        marketPlaceId:
+          type: string
+          description: 'Caso o Marketplace possua algum identificador de cliente, pode ser passado nesse atributo'
+        name:
+          type: string
+          description: Nome do Comprador
+        email:
+          type: string
+          description: E-mail do Comprador (*Importante vir o e-mail criptografado*)
+          example: AeOks56588@marketplace.com
+        document:
+          type: string
+          description: Cpf ou CNPJ do Comprador
+        documentType:
+          type: string
+          description: Tipo de documento do Comprador
+          enum:
+            - CPF
+            - CNPJ
+        phone:
+          type: string
+          description: Telefone do Comprador
+        cellPhone:
+          type: string
+          description: Celular do Comprador
+        documentNumberNormalized:
+          type: string
+    ApiTracking:
+      title: ApiTracking
+      type: object
+      properties:
+        url:
+          type: string
+        number:
+          type: string
+        carrier:
+          type: string
+        carrierDocument:
+          type: string
+        date:
+          type: string
+          format: date-time
+        estimateDate:
+          type: string
+          format: date-time
+        shippedDate:
+          type: string
+          format: date-time
+        deliveredDate:
+          type: string
+          format: date-time
+    ApiPayment:
+      title: ApiPayment
+      type: object
+      properties:
+        method:
+          type: string
+          description: Forma de Pagamento
+          example: 'PIX, Boleto, Cartão de Crédito a Vista, Cartão de Crédito 5x, etc'
+        status:
+          type: string
+          description: Status do Pagamento
+          example: 'Pendente de Pagamento, Pagamento Aprovado, etc'
+        value:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+          description: Valor do Pagamento (*O Valor tem que ser igual ao total do pedido*)
+        installments:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+          description: Quantidade de Parcelas
+        marketplaceId:
+          type: string
+        paymentMethodNormalized:
+          type: string
+        paymentDetailNormalized:
+          type: string
+        dueDate:
+          type: string
+          format: date-time
+    ApiOrderItemShipping:
+      title: ApiOrderItemShipping
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        shippingtype:
+          type: string
+          description: 'Forma de entrega do Pedido (*Importante enviar nesse campo a Transportadora concatenado com o tipo de serviço, conforme exemplo abaixo*)'
+          example: '"CORREIOS - SEDEX" , "CORREIOS - NORMAL"'
+        shippingCarrierNormalized:
+          type: string
+        shippingCarrierTypeNormalized:
+          type: string
+    ApiOrderItem:
+      title: ApiOrderItem
+      type: object
+      properties:
+        partnerId:
+          type: string
+          description: SKU do produto no Anymarket já aplicado o regex (skuInMarketplace)
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+          description: Quantidade
+        unit:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+          description: Valor Unitário
+        gross:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+          description: Valor Bruto sem o desconto
+        total:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+          description: 'Total é : (gross*unit) - discount'
+        discount:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+          description: Desconto do item
+        shippings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiOrderItemShipping'
+        marketPlaceId:
+          type: string
+        orderItemId:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+    RemoteApiUpdateOrderStatus:
+      title: RemoteApiUpdateOrderStatus
+      type: object
+      properties:
+        orderId:
+          type: integer
+          format: int64
+          minimum: 0
+          exclusiveMaximum: true
+        idInMarketplace:
+          type: string
+        oldStatus:
+          type: string
+          enum:
+            - PENDING
+            - PAID
+            - INVOICED
+            - SHIPPED
+            - DELIVERED
+            - CANCELED
+        currentStatus:
+          type: string
+          enum:
+            - PENDING
+            - PAID
+            - INVOICED
+            - SHIPPED
+            - DELIVERED
+            - CANCELED
+    Categories:
+      type: array
+      description: ''
+      minItems: 1
+      uniqueItems: true
+      x-examples:
+        example-1:
+          - codeInMarketplace: '2551'
+            name: Decoração
+      items:
+        type: object
+        properties:
+          codeInMarketplace:
+            type: string
+            minLength: 1
+            description: Código da categoria no Marketplace
+          name:
+            type: string
+            minLength: 1
+            description: O nome da categoria no Marketplace
+        required:
+          - codeInMarketplace
+          - name
+    VinculoSku:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          idInMarketplace: SKUFROMMKT
+          publicationStatus: ACTIVE
+          marketplaceStatus: STATUS_NO_MKT_SKM2
+          skuInMarketplace: SKU_IN_MKT_MKT_SKM2
+          title: PRODUTO
+          ean: '456789123456'
+          priceFactor: 1
+          price: 10
+          discountPrice: 9
+      properties:
+        idInMarketplace:
+          type: string
+          minLength: 1
+        publicationStatus:
+          type: string
+          minLength: 1
+          enum:
+            - UNPUBLISHED
+            - CLOSED
+            - CORRUPTED
+            - PAUSED
+            - WITHOUT_STOCK
+            - ACTIVE
+          description: 'Status da publicação no Marketplace. '
+        marketplaceStatus:
+          type: string
+          minLength: 1
+          description: Campo de String onde o marketplace pode retornar qual o STATUS do anuncio no Marketplace.
+          example: '"ATIVO", "Anuncio Encerrado", "Anuncio Pausado".'
+        skuInMarketplace:
+          type: string
+          minLength: 1
+          description: SKU do produto no Marketplace
+        title:
+          type: string
+          minLength: 1
+          description: Titulo da Publicação
+        ean:
+          type: string
+          minLength: 1
+          description: Ean do Produto
+        priceFactor:
+          type: number
+          example: 1
+        price:
+          type: number
+          description: 'Preço DE:'
+        discountPrice:
+          type: number
+          description: 'Preço POR:'
+      required:
+        - idInMarketplace
+        - publicationStatus
+        - marketplaceStatus
+        - skuInMarketplace
+        - title
+        - ean
+        - priceFactor
+        - price
+        - discountPrice
+    canSave:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          mainSkuMarketplace: null
+          catalog: false
+          idInMarketplace: '123456'
+          status: UNPUBLISHED
+          marketplaceStatus: unpublished
+          transmissionStatus: WAITING_SYNC
+          errorMsg: null
+          skuMarketPlaceMessage: null
+          idInSite: null
+          fields:
+            template: '641'
+            EAN: '7884016317801'
+            is_main_sku: 'true'
+            DISCOUNT_VALUE: '100'
+            title: 'Dotz: Transmitir Produto sem gênero'
+            DISCOUNT_TYPE: VALUE
+            HAS_DISCOUNT: 'true'
+            priceFactor: '1.50'
+          isCatalog: false
+          permalink: null
+          endDate: null
+          title: null
+          ean: null
+          skuInMarketplace: 19-Dotz
+          priceFactor: 1.5
+          price: 790.5
+          discountPrice: 690.5
+          idAccount: 9
+          accountName: Conta Taynara - TESTE
+          marketPlace: null
+          id: null
+          stock: null
+          attributes:
+            string: string
+          sku:
+            id: 1613194
+            partnerId: 19-Dotz
+            amount: null
+            ean: '7884016317801'
+            title: 'Dotz: Transmitir Produto sem gênero'
+            price: 527
+            sellPrice: 527
+            additionalTime: 10
+            variations: []
+            product:
+              imagesWithoutVariationValue:
+                - id: 2032070
+                  index: 1
+                  variation: null
+                  thumbnailUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./19743584A8A69721114789D612A6866B/thumbnail.jpg'
+                  standardUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./19743584A8A69721114789D612A6866B/standard_resolution.jpg'
+                  lowResolutionUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./19743584A8A69721114789D612A6866B/low_resolution.jpg'
+                  originalImage: null
+                  url: 'https://s3.sa-east-1.amazonaws.com/images.sox.anymarket.com.br/34405162./1621427842549/original.png'
+                  statusMessage: null
+                  status: PROCESSED
+                  main: true
+                  standardWidth: null
+                  standardHeight: null
+                  originalWidth: null
+                  originalHeight: null
+                - id: 2032071
+                  index: 2
+                  variation: null
+                  thumbnailUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./727679362BEA32CFD6B035291B518DB0/thumbnail.jpg'
+                  standardUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./727679362BEA32CFD6B035291B518DB0/standard_resolution.jpg'
+                  lowResolutionUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./727679362BEA32CFD6B035291B518DB0/low_resolution.jpg'
+                  originalImage: null
+                  url: 'https://s3.sa-east-1.amazonaws.com/images.sox.anymarket.com.br/34405162./1621427848204/original.png'
+                  statusMessage: null
+                  status: PROCESSED
+                  main: false
+                  standardWidth: null
+                  standardHeight: null
+                  originalWidth: null
+                  originalHeight: null
+                - id: 2032072
+                  index: 3
+                  variation: null
+                  thumbnailUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./EDBE0C4339CCBF60D6DE2BC0EB0B96E4/thumbnail.jpg'
+                  standardUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./EDBE0C4339CCBF60D6DE2BC0EB0B96E4/standard_resolution.jpg'
+                  lowResolutionUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./EDBE0C4339CCBF60D6DE2BC0EB0B96E4/low_resolution.jpg'
+                  originalImage: null
+                  url: 'https://s3.sa-east-1.amazonaws.com/images.sox.anymarket.com.br/34405162./1621427852169/original.png'
+                  statusMessage: null
+                  status: PROCESSED
+                  main: false
+                  standardWidth: null
+                  standardHeight: null
+                  originalWidth: null
+                  originalHeight: null
+              id: 2344708
+              title: 'Dotz: Transmitir Produto sem gênero'
+              description: Descrição do Produto Padrão
+              model: Intelligent Granite Chicken -Modelo Dotz
+              nbm:
+                id: '84158190'
+                description: OUTS.APARS.DE AR COND.C/DISP.REFRIG.VALV.INV.CICLO TERM
+              videoUrl: null
+              definitionPriceScope: COST
+              characteristics:
+                - index: 0
+                  name: 993-CaracteristicaConectaLa
+                  value: string
+              origin:
+                name: NACIONAL
+                id: 0
+              category:
+                id: 772965
+                idInMarketplace: c100715
+                name: Categoria Padrão Dotz
+                path: Categoria Padrão Dotz
+              height: 677
+              length: 306
+              width: 516
+              weight: 359
+              images:
+                - id: 2032070
+                  index: 1
+                  variation: null
+                  thumbnailUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./19743584A8A69721114789D612A6866B/thumbnail.jpg'
+                  standardUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./19743584A8A69721114789D612A6866B/standard_resolution.jpg'
+                  lowResolutionUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./19743584A8A69721114789D612A6866B/low_resolution.jpg'
+                  originalImage: null
+                  url: 'https://s3.sa-east-1.amazonaws.com/images.sox.anymarket.com.br/34405162./1621427842549/original.png'
+                  statusMessage: null
+                  status: PROCESSED
+                  main: true
+                  standardWidth: null
+                  standardHeight: null
+                  originalWidth: null
+                  originalHeight: null
+                - id: 2032071
+                  index: 2
+                  variation: null
+                  thumbnailUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./727679362BEA32CFD6B035291B518DB0/thumbnail.jpg'
+                  standardUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./727679362BEA32CFD6B035291B518DB0/standard_resolution.jpg'
+                  lowResolutionUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./727679362BEA32CFD6B035291B518DB0/low_resolution.jpg'
+                  originalImage: null
+                  url: 'https://s3.sa-east-1.amazonaws.com/images.sox.anymarket.com.br/34405162./1621427848204/original.png'
+                  statusMessage: null
+                  status: PROCESSED
+                  main: false
+                  standardWidth: null
+                  standardHeight: null
+                  originalWidth: null
+                  originalHeight: null
+                - id: 2032072
+                  index: 3
+                  variation: null
+                  thumbnailUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./EDBE0C4339CCBF60D6DE2BC0EB0B96E4/thumbnail.jpg'
+                  standardUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./EDBE0C4339CCBF60D6DE2BC0EB0B96E4/standard_resolution.jpg'
+                  lowResolutionUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/34405162./EDBE0C4339CCBF60D6DE2BC0EB0B96E4/low_resolution.jpg'
+                  originalImage: null
+                  url: 'https://s3.sa-east-1.amazonaws.com/images.sox.anymarket.com.br/34405162./1621427852169/original.png'
+                  statusMessage: null
+                  status: PROCESSED
+                  main: false
+                  standardWidth: null
+                  standardHeight: null
+                  originalWidth: null
+                  originalHeight: null
+              brand:
+                id: 231107
+                idInMarketplace: 614894a9b6080b7646238105
+                name: Marca Padrão Dotz
+                partnerId: Marca Padrão Dotz
+              warrantyTime: 1
+              warrantyText: Texto da Garantia Vem aqui
+              priceFactor: 1
+              calculatedPrice: true
+              hasVariations: false
+              gender: null
+              skus: null
+              allowAutomaticSkuMarketplaceCreation: false
+      properties:
+        mainSkuMarketplace:
+          description: ''
+        catalog:
+          type: boolean
+        idInMarketplace:
+          type: string
+          minLength: 1
+          description: sku no Markeplace
+        status:
+          type: string
+          minLength: 1
+          enum:
+            - UNPUBLISHED
+        marketplaceStatus:
+          type: string
+          minLength: 1
+          enum:
+            - unpublished
+        transmissionStatus:
+          type: string
+          minLength: 1
+          enum:
+            - WAITING_SYNC
+        errorMsg: {}
+        skuMarketPlaceMessage: {}
+        idInSite: {}
+        fields:
+          type: object
+          required:
+            - template
+            - EAN
+            - is_main_sku
+            - DISCOUNT_VALUE
+            - title
+            - DISCOUNT_TYPE
+            - HAS_DISCOUNT
+            - priceFactor
+          properties:
+            template:
+              type: string
+              minLength: 1
+            EAN:
+              type: string
+              minLength: 1
+              description: Código de barras
+            is_main_sku:
+              type:
+                - boolean
+                - string
+              description: Identificador de variação principal
+            DISCOUNT_VALUE:
+              type: string
+              minLength: 1
+              description: Valor ou percentual de desconto
+            title:
+              type: string
+              minLength: 1
+              description: Titulo da publicação
+            DISCOUNT_TYPE:
+              type: string
+              minLength: 1
+              description: Tipo de desconto
+            HAS_DISCOUNT:
+              type: string
+              minLength: 1
+              description: Se possui desconto
+            priceFactor:
+              type: string
+              minLength: 1
+              description: Markup
+        isCatalog:
+          type: boolean
+        permalink:
+          description: Link da publicação
+        endDate: {}
+        title: {}
+        ean: {}
+        skuInMarketplace:
+          type: string
+          minLength: 1
+        priceFactor:
+          type: number
+        price:
+          type: number
+        discountPrice:
+          type: number
+        idAccount:
+          type: number
+        accountName:
+          type: string
+          minLength: 1
+        marketPlace: {}
+        id: {}
+        stock: {}
+        attributes:
+          type: object
+          properties:
+            string:
+              type: string
+        sku:
+          type: object
+          required:
+            - id
+            - partnerId
+            - ean
+            - title
+            - price
+            - sellPrice
+            - additionalTime
+            - variations
+            - product
+          properties:
+            id:
+              type: number
+            partnerId:
+              type: string
+              minLength: 1
+            amount: {}
+            ean:
+              type: string
+              minLength: 1
+            title:
+              type: string
+              minLength: 1
+            price:
+              type: number
+            sellPrice:
+              type: number
+            additionalTime:
+              type: number
+            variations:
+              type: array
+              items:
+                type: object
+                properties:
+                  '':
+                    type: string
+            product:
+              type: object
+              required:
+                - imagesWithoutVariationValue
+                - id
+                - title
+                - description
+                - model
+                - nbm
+                - definitionPriceScope
+                - characteristics
+                - origin
+                - category
+                - height
+                - length
+                - width
+                - weight
+                - images
+                - brand
+                - warrantyTime
+                - warrantyText
+                - priceFactor
+                - calculatedPrice
+                - hasVariations
+                - allowAutomaticSkuMarketplaceCreation
+              properties:
+                imagesWithoutVariationValue:
+                  type: array
+                  uniqueItems: true
+                  minItems: 1
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      index:
+                        type: number
+                      variation: {}
+                      thumbnailUrl:
+                        type: string
+                        minLength: 1
+                      standardUrl:
+                        type: string
+                        minLength: 1
+                      lowResolutionUrl:
+                        type: string
+                        minLength: 1
+                      originalImage: {}
+                      url:
+                        type: string
+                        minLength: 1
+                      statusMessage: {}
+                      status:
+                        type: string
+                        minLength: 1
+                      main:
+                        type: boolean
+                      standardWidth: {}
+                      standardHeight: {}
+                      originalWidth: {}
+                      originalHeight: {}
+                    required:
+                      - id
+                      - index
+                      - thumbnailUrl
+                      - standardUrl
+                      - lowResolutionUrl
+                      - url
+                      - status
+                      - main
+                id:
+                  type: number
+                title:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                  minLength: 1
+                model:
+                  type: string
+                  minLength: 1
+                nbm:
+                  type: object
+                  required:
+                    - id
+                    - description
+                  properties:
+                    id:
+                      type: string
+                      minLength: 1
+                    description:
+                      type: string
+                      minLength: 1
+                videoUrl: {}
+                definitionPriceScope:
+                  type: string
+                  minLength: 1
+                characteristics:
+                  type: array
+                  uniqueItems: true
+                  minItems: 1
+                  items:
+                    type: object
+                    properties:
+                      index:
+                        type: number
+                      name:
+                        type: string
+                        minLength: 1
+                      value:
+                        type: string
+                        minLength: 1
+                    required:
+                      - index
+                      - name
+                      - value
+                origin:
+                  type: object
+                  required:
+                    - name
+                    - id
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                    id:
+                      type: number
+                category:
+                  type: object
+                  required:
+                    - id
+                    - idInMarketplace
+                    - name
+                    - path
+                  properties:
+                    id:
+                      type: number
+                    idInMarketplace:
+                      type: string
+                      minLength: 1
+                    name:
+                      type: string
+                      minLength: 1
+                    path:
+                      type: string
+                      minLength: 1
+                height:
+                  type: number
+                length:
+                  type: number
+                width:
+                  type: number
+                weight:
+                  type: number
+                images:
+                  type: array
+                  uniqueItems: true
+                  minItems: 1
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      index:
+                        type: number
+                      variation: {}
+                      thumbnailUrl:
+                        type: string
+                        minLength: 1
+                      standardUrl:
+                        type: string
+                        minLength: 1
+                      lowResolutionUrl:
+                        type: string
+                        minLength: 1
+                      originalImage: {}
+                      url:
+                        type: string
+                        minLength: 1
+                      statusMessage: {}
+                      status:
+                        type: string
+                        minLength: 1
+                      main:
+                        type: boolean
+                      standardWidth: {}
+                      standardHeight: {}
+                      originalWidth: {}
+                      originalHeight: {}
+                    required:
+                      - id
+                      - index
+                      - thumbnailUrl
+                      - standardUrl
+                      - lowResolutionUrl
+                      - url
+                      - status
+                      - main
+                brand:
+                  type: object
+                  required:
+                    - id
+                    - idInMarketplace
+                    - name
+                    - partnerId
+                  properties:
+                    id:
+                      type: number
+                    idInMarketplace:
+                      type: string
+                      minLength: 1
+                    name:
+                      type: string
+                      minLength: 1
+                    partnerId:
+                      type: string
+                      minLength: 1
+                warrantyTime:
+                  type: number
+                warrantyText:
+                  type: string
+                  minLength: 1
+                priceFactor:
+                  type: number
+                calculatedPrice:
+                  type: boolean
+                hasVariations:
+                  type: boolean
+                gender: {}
+                skus: {}
+                allowAutomaticSkuMarketplaceCreation:
+                  type: boolean
+      required:
+        - catalog
+        - idInMarketplace
+        - status
+        - marketplaceStatus
+        - transmissionStatus
+        - fields
+        - isCatalog
+        - skuInMarketplace
+        - priceFactor
+        - price
+        - discountPrice
+        - idAccount
+        - accountName
+        - attributes
+        - sku
+    variation_response:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          codeInMarketplace: COLOR_VARIANT
+          name: Cor
+          values:
+            - codeInMarketplace: RED
+              name: Vermelho
+            - codeInMarketplace: BLUE
+              name: Azul
+      properties:
+        codeInMarketplace:
+          type: string
+          minLength: 1
+          description: Código do Tipo de Variação no Marketplace
+        name:
+          type: string
+          minLength: 1
+          description: Nome do Tipo de Variação
+        values:
+          type: array
+          uniqueItems: true
+          minItems: 1
+          description: Valores da Variação
+          items:
+            type: object
+            properties:
+              codeInMarketplace:
+                type: string
+                minLength: 1
+                description: Código do Valor de Variação no Marketplace
+              name:
+                type: string
+                minLength: 1
+                description: Nome da Variação
+            required:
+              - codeInMarketplace
+              - name
+      required:
+        - codeInMarketplace
+        - name
+        - values
+  securitySchemes:
+    x-anymarket-token:
+      name: x-anymarket-token
+      type: apiKey
+      in: header
+      description: Token de segurança fornecido pela Anymarket
+  requestBodies:
+    xml:
+      content:
+        application/xml:
+          schema:
+            type: object
+          examples:
+            XML:
+              value: |-
+                <nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+                <infNFe versao="4.00" Id="NFe41190908328657000194550015624654251041433087">
+                <ide>
+                <cUF>41</cUF>
+                <cNF>04143308</cNF>
+                <natOp>Venda de mercadorias</natOp>
+                <mod>55</mod>
+                <serie>1</serie>
+                <nNF>562465425</nNF>
+                <dhEmi>2019-09-11T15:57:56-03:00</dhEmi>
+                <tpNF>1</tpNF>
+                <idDest>1</idDest>
+                <cMunFG>4115200</cMunFG>
+                <tpImp>1</tpImp>
+                <tpEmis>1</tpEmis>
+                <cDV>7</cDV>
+                <tpAmb>2</tpAmb>
+                <finNFe>1</finNFe>
+                <indFinal>1</indFinal>
+                <indPres>9</indPres>
+                <procEmi>0</procEmi>
+                <verProc>Bling 1.0</verProc>
+                </ide>
+                <emit>
+                <CNPJ>08328657000194</CNPJ>
+                <xNome>Anymarket DB1</xNome>
+                <enderEmit>
+                <xLgr>Av. Advogado Horacio Raccanello Filho</xLgr>
+                <nro>5410</nro>
+                <xBairro>Novo Centro</xBairro>
+                <cMun>4115200</cMun>
+                <xMun>Maringa</xMun>
+                <UF>PR</UF>
+                <CEP>87020035</CEP>
+                <cPais>1058</cPais>
+                <xPais>Brasil</xPais>
+                <fone>4430336300</fone>
+                </enderEmit>
+                <IE>9038912540</IE>
+                <CRT>1</CRT>
+                </emit>
+                <dest>
+                <CPF>42159270130</CPF>
+                <xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome>
+                <enderDest>
+                <xLgr>Praca Amabile Giroldo</xLgr>
+                <nro>100</nro>
+                <xCpl>maca, area, avo, avo</xCpl>
+                <xBairro>Zona 04</xBairro>
+                <cMun>4115200</cMun>
+                <xMun>Maringa</xMun>
+                <UF>PR</UF>
+                <CEP>87014280</CEP>
+                <cPais>1058</cPais>
+                <xPais>Brasil</xPais>
+                <fone>4432202020</fone>
+                </enderDest>
+                <indIEDest>9</indIEDest>
+                <email>ttest.7y5snb2-oge3dcojrgmztcmbt@mail.com</email>
+                </dest>
+                <det nItem="1">
+                <prod>
+                <cProd>AKCI00990ZPTODAVIDA</cProd>
+                <cEAN>SEM GTIN</cEAN>
+                <xProd>NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xProd>
+                <NCM>01029000</NCM>
+                <CFOP>5102</CFOP>
+                <uCom>1</uCom>
+                <qCom>1.0000</qCom>
+                <vUnCom>160.00</vUnCom>
+                <vProd>160.00</vProd>
+                <cEANTrib>SEM GTIN</cEANTrib>
+                <uTrib>1</uTrib>
+                <qTrib>1.0000</qTrib>
+                <vUnTrib>160.00</vUnTrib>
+                <indTot>1</indTot>
+                <nItemPed>1</nItemPed>
+                </prod>
+                <imposto>
+                <vTotTrib>25.92</vTotTrib>
+                <ICMS>
+                <ICMSSN102>
+                <orig>0</orig>
+                <CSOSN>400</CSOSN>
+                </ICMSSN102>
+                </ICMS>
+                <IPI>
+                <cEnq>301</cEnq>
+                <IPINT>
+                <CST>52</CST>
+                </IPINT>
+                </IPI>
+                <PIS>
+                <PISNT>
+                <CST>07</CST>
+                </PISNT>
+                </PIS>
+                <COFINS>
+                <COFINSNT>
+                <CST>07</CST>
+                </COFINSNT>
+                </COFINS>
+                </imposto>
+                </det>
+                <total>
+                <ICMSTot>
+                <vBC>0.00</vBC>
+                <vICMS>0.00</vICMS>
+                <vICMSDeson>0</vICMSDeson>
+                <vFCP>0.00</vFCP>
+                <vBCST>0.00</vBCST>
+                <vST>0.00</vST>
+                <vFCPST>0.00</vFCPST>
+                <vFCPSTRet>0.00</vFCPSTRet>
+                <vProd>160.00</vProd>
+                <vFrete>0.00</vFrete>
+                <vSeg>0.00</vSeg>
+                <vDesc>0.00</vDesc>
+                <vII>0.00</vII>
+                <vIPI>0.00</vIPI>
+                <vIPIDevol>0.00</vIPIDevol>
+                <vPIS>0.00</vPIS>
+                <vCOFINS>0.00</vCOFINS>
+                <vOutro>0.00</vOutro>
+                <vNF>160.00</vNF>
+                <vTotTrib>25.92</vTotTrib>
+                </ICMSTot>
+                </total>
+                <transp>
+                <modFrete>0</modFrete>
+                <transporta>
+                <xNome>DESCONHECIDO</xNome>
+                </transporta>
+                <vol>
+                <pesoL>0.000</pesoL>
+                <pesoB>0.000</pesoB>
+                </vol>
+                </transp>
+                <cobr>
+                <fat>
+                <nFat>562465425</nFat>
+                <vOrig>160.00</vOrig>
+                <vDesc>0</vDesc>
+                <vLiq>160.00</vLiq>
+                </fat>
+                <dup>
+                <nDup>001</nDup>
+                <dVenc>2019-09-11</dVenc>
+                <vDup>160.00</vDup>
+                </dup>
+                </cobr>
+                <pag>
+                <detPag>
+                <tPag>01</tPag>
+                <vPag>160.00</vPag>
+                </detPag>
+                </pag>
+                <infAdic>
+                <infCpl>Total aproximado de tributos: R$ 25,92 (16,20%) Federais R$ 6,72 (4,20%) Estaduais R$ 19,20 (12,00%) . Fonte IBPT.<br /></infCpl>
+                </infAdic>
+                <infRespTec>
+                <CNPJ>01056417000139</CNPJ>
+                <xContato>Jonatan Fracasso da Silva</xContato>
+                <email>fiscal@bling.com.br</email>
+                <fone>05430550479</fone>
+                </infRespTec>
+                </infNFe>
+                <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+                <SignedInfo>
+                <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+                <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+                <Reference URI="#NFe41190908328657000194550015624654251041433087">
+                <Transforms>
+                <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+                <Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+                </Transforms>
+                <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+                <DigestValue>JYjiWB7sFoiM7jQckhdvLsSBpQw=</DigestValue>
+                </Reference>
+                </SignedInfo>
+                <SignatureValue>H6DfZXCiFcypfHAXdaotLTU2hSJxaCCDIEHkU84eioyd4VVSqYu/0FbBAYnmlb5xGbqio59fzlZ2P7OvR4UogYcW32jT95HfuB2wkUxIbCPzI14uEQzm7Sve8NG+0H0Oge1U/vTApeZHcGfVsQiGCRItvDUVuGJ50qPCGONz1BV6yBO9cr9WxtA2AhOklb4uShPrb+08W+LZ2ReYKLND5vJVofEmUE9jU1hgFGm/WM2zMgauKNqgJr2/nlPI13PxyxYZ6QTC7EenkEJdr+L9ziWzN5haFQ7mw2jtVQOwpnU5KQBbfmpyWZKQ9sUDPOrnr9y73iKGrPAf6cvTNEhZAA==</SignatureValue>
+                <KeyInfo>
+                <X509Data>
+                <X509Certificate>MIIHwDCCBaigAwIBAgIIRD0ZAig/4BIwDQYJKoZIhvcNAQELBQAwgYkxCzAJBgNVBAYTAkJSMRMwEQYDVQQKEwpJQ1AtQnJhc2lsMTQwMgYDVQQLEytBdXRvcmlkYWRlIENlcnRpZmljYWRvcmEgUmFpeiBCcmFzaWxlaXJhIHYyMRIwEAYDVQQLEwlBQyBTT0xVVEkxGzAZBgNVBAMTEkFDIFNPTFVUSSBNdWx0aXBsYTAeFw0xOTAyMjgxODA0MTBaFw0yMDAyMjgxNzM1MDBaMIHfMQswCQYDVQQGEwJCUjETMBEGA1UEChMKSUNQLUJyYXNpbDE0MDIGA1UECxMrQXV0b3JpZGFkZSBDZXJ0aWZpY2Fkb3JhIFJhaXogQnJhc2lsZWlyYSB2MjESMBAGA1UECxMJQUMgU09MVVRJMRswGQYDVQQLExJBQyBTT0xVVEkgTXVsdGlwbGExGjAYBgNVBAsTEUNlcnRpZmljYWRvIFBKIEExMTgwNgYDVQQDEy9EQjEgU0lTVEVNQVMgRSBDT05TVUxUT1JJQSBMVERBLjowODMyODY1NzAwMDE5NDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJAMfqYQn+K1ZVA1mikdSoUdeP9JU1zcj9JW30yqcRgHqYeNvVZwSPGSpNBURTpdJq+a2QEUXrqe9xLDCWNbPV6M4Br3cq7JOSc4lC31gt6JxhBXrm9cRQvcu0Kyh7h8DF8aHcFEW2rr8xGXQdiguR3Gs1bgPUdpqRQNQ5nq5oaoGdbIjbRWkNLSV9LXZP/PW6KIRdCMBby4ly7TbEt1WwU2az625TOnlVLL0ISHKdNAcKwtDM53OEq+FXp4nmfO7LULo5IB57Zzj97Xz4wyNyir/9nh1lX3cc/i8AlcTYVPtK1u/h1Id/UZK53mb9yo0FMLRf+nHXI9q7g7AUjZHycCAwEAAaOCAtIwggLOMFQGCCsGAQUFBwEBBEgwRjBEBggrBgEFBQcwAoY4aHR0cDovL2NjZC5hY3NvbHV0aS5jb20uYnIvbGNyL2FjLXNvbHV0aS1tdWx0aXBsYS12MS5wN2IwHQYDVR0OBBYEFGbSSAwEwrPZAgM8DFShvCbMJ+50MAkGA1UdEwQCMAAwHwYDVR0jBBgwFoAUNa4xFPZe0npPWP40qBpnlwrEmwcwXgYDVR0gBFcwVTBTBgZgTAECASYwSTBHBggrBgEFBQcCARY7aHR0cHM6Ly9jY2QuYWNzb2x1dGkuY29tLmJyL2RvY3MvZHBjLWFjLXNvbHV0aS1tdWx0aXBsYS5wZGYwgd4GA1UdHwSB1jCB0zA+oDygOoY4aHR0cDovL2NjZC5hY3NvbHV0aS5jb20uYnIvbGNyL2FjLXNvbHV0aS1tdWx0aXBsYS12MS5jcmwwP6A9oDuGOWh0dHA6Ly9jY2QyLmFjc29sdXRpLmNvbS5ici9sY3IvYWMtc29sdXRpLW11bHRpcGxhLXYxLmNybDBQoE6gTIZKaHR0cDovL3JlcG9zaXRvcmlvLmljcGJyYXNpbC5nb3YuYnIvbGNyL0FDU09MVVRJL2FjLXNvbHV0aS1tdWx0aXBsYS12MS5jcmwwDgYDVR0PAQH/BAQDAgXgMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDCBugYDVR0RBIGyMIGvgRhjb250cm9sYWRvcmlhQGRiMS5jb20uYnKgJQYFYEwBAwKgHBMaQUxFWEFORFJFIERBIFNJTFZBIFJFWkVOREWgGQYFYEwBAwOgEBMOMDgzMjg2NTcwMDAxOTSgOAYFYEwBAwSgLxMtMDYxMDE5ODAwMzAwNzQ1Nzk2MzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwoBcGBWBMAQMHoA4TDDAwMDAwMDAwMDAwMDANBgkqhkiG9w0BAQsFAAOCAgEAYTnjjqwxA3Yg4YYBf+tArw2SshV2IXb5IqqmFtRWBiHlIgwwc8VgGsJEM8nJwFX5htPTtySX4RCETTbh/GKBYjp42T+v1udKuDYohoTdm1TrYvarXkFXKqQ6HBzDFtLPo4VfsKbAe/31S5OtYvb536Qtj6e+5S000RH5nCHsfcqgShZHkdLuMpQqjawaCVccfERlK/3iN4S9pYryy+zgeb158rNOKUZU4DVj2yhNO3JKvUmvPuyHpUnAqGA35qZkCSLCPl4AEi4RyjCE5DAwGp20gMF5xXZwZD+rszTzILpXUfyqAjL2uarkSJrhRmXGT7i2cQHzez2HrLzLBI8vgalzk98RcX1GNiQlUueEWH2xseh/nyi3YjOkFIyhzvQuACTs6Ou4xYPW/3xkclNivc44lomEzmT16yZrrxD7AdlH4om1+Hrcr216AiekIO72Ggl2bjKt10vFtb9NlEmrpBq9+KcKbL4v2QNOESHsDQXnxgi0XuECdw3Jkj4X0IYbN8h4RkKvYiCTi5bgLH685XkU2WgGYAtvTAlmIvTlMDhskKv6cmHp5C0b2GPvC8WMncq5bwNqjLDhwH/qSsqsJT7s2qypj+mzokuMpjJ8noVy5LU0on6p5QOnO31mMbYmvHFbhbigl9OHe94liqVnJdChVlQD3j74EelQwZjCrZw=</X509Certificate>
+                </X509Data>
+                </KeyInfo>
+                </Signature>
+                </NFe>
+                <protNFe versao="4.00">
+                <infProt>
+                <tpAmb>2</tpAmb>
+                <verAplic>PR-v4_4_9</verAplic>
+                <chNFe>41190908328657000194550015624654251041433087</chNFe>
+                <dhRecbto>2019-09-11T15:57:57-03:00</dhRecbto>
+                <nProt>141190000835627</nProt>
+                <digVal>JYjiWB7sFoiM7jQckhdvLsSBpQw=</digVal>
+                <cStat>100</cStat>
+                <xMotivo>Autorizado o uso da NF-e</xMotivo>
+                </infProt>
+                </protNFe>
+                </nfeProc>
+      description: XML
+  examples:
+    xml:
+      value:
+        description: Example shared example
+        type: object
+        properties:
+          id:
+            type: string
+        required:
+          - id
+security:
+  - x-anymarket-token: []

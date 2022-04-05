@@ -1,0 +1,68 @@
+{
+  "items": [
+    {
+      "type": "divider",
+      "title": "API MARKETPLACE"
+    },
+    {
+      "type": "group",
+      "title": "Primeiros passos",
+      "items": [
+        {
+          "type": "item",
+          "title": "Introdução",
+          "uri": "docs/remotes/introducao.md"
+        },
+         {
+          "type": "item",
+          "title": "Autenticação",
+          "uri": "docs/remotes/autenticacao.md"
+        },
+        {
+          "type": "item",
+          "title": "Ativação do Módulo",
+          "uri": "docs/remotes/ativacaoModulo.md"
+        },
+        {
+          "type": "item",
+          "title": "Fluxo Anúncio",
+          "uri": "docs/remotes/fluxoAnuncio.md"
+        },
+        {
+          "type": "item",
+          "title": "Processo de homologação",
+          "uri": "docs/remotes/homologacao.md"
+        },
+        {
+          "type": "item",
+          "title": "Importando a Collection das APIs",
+          "uri": "docs/ImportCollection.md"
+        }
+      ]
+    },
+    {
+      "type": "item",
+      "title": "Release Notes",
+      "uri": "docs/remotes/releasenotes.md"
+    },  
+    {
+      "type": "item",
+      "title": "API MARKETPLACE",
+      "uri": "reference/marketplace_pt.yaml"
+    },
+    {
+      "type": "item",
+      "title": "API REMOTE",
+      "uri": "reference/remote_pt.yaml"
+    },
+        {
+      "type": "divider",
+      "title": "Exemplos MARKDOWN (apagar)"
+    },
+    {
+      "type": "item",
+      "title": "Exemplo de tags",
+      "uri": "docs/exemplos.md"
+    }
+  ]
+}

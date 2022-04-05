@@ -1,0 +1,3668 @@
+openapi: 3.0.0
+info:
+  title: API MARKETPLACE
+  version: '1.0'
+  contact:
+    email: anymarketdev@db1.com.br
+    name: AnyMarket Developers
+    url: 'http://developers.anymarket.com.br/'
+  x-logo:
+    url: 'https://anymarket.com.br/wp-content/uploads/2018/07/icon-anymarket-300x300.png'
+  x-preferred: true
+  x-providerName: API MARKETPLACE
+  description: |
+    Nesse conjunto de chamadas irá conter as chamadas necessárias que o marketplace precisa realizar na camada ANYMARKET afim de obter dados como:
+
+    - Informações sobre produto;
+    - Informação de atualização de dados das transmissões;
+    - Atualizar status de transmissões;
+    - Inserir pedidos;
+    - Informação de dados do pedido;
+    - Atualizar informações de pedidos;
+    - Cotação de frete;
+    - Monitoramento;
+servers:
+  - url: 'http://sandbox-api.anymarket.com.br/marketplace/api'
+    description: Sandbox
+paths:
+  /configuration:
+    get:
+      summary: /configuration
+      tags:
+        - Configuração
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/configuration'
+      operationId: get-api-configuration
+      description: Consulta todas as configurações realizadas pelo seller no ANYMARKET.
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: appId
+        - schema:
+            type: string
+          in: header
+          name: token
+    parameters: []
+  '/skumarketplace/{id}':
+    parameters:
+      - schema:
+          type: string
+        name: id
+        in: path
+        required: true
+    put:
+      summary: '/skumarketplace/{id}'
+      operationId: put-skumarketplace-id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      idSku:
+                        type: integer
+                        format: int64
+                        minimum: 0
+                        exclusiveMaximum: true
+                  - $ref: ./remote_pt.yaml#/components/schemas/SkuMarketplace
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/404'
+      description: |-
+        Atualizar os dados de uma transmissão, o marketplace deve acionar o endpoint para remover o status de sincronizando, sempre retornando o status do anuncio no marketplace.
+        É obrigatório quando o marketplace não processe o anúncio, ou caso tenha gerado algum erro de catalogação o mesmo informe através desse endpoint para que o seller consiga estar aplicando a correção informada.
+
+        Nessa etapa do desenvolvimento o marketplace deve levar em considerações algumas informações como: 
+        - Quais são as equivalências de status do ANYMARKET com o meu marketplace? 
+        - Há processo de catalogação manual?
+        - Sempre que eu receber uma notificação no remote /sendProduct como devo prosseguir?
+
+        ### EQUIVALENCIAS DE STATUS
+        O primeiro passo é que o marketplace consiga identificar quais as equivalências de status do ANYMARKET e as do marketplace. Por exemplo: 
+
+        | STATUS        |      SIGNIFICADO      |   MARKETPLACE|
+        | ------------- | :-----------: | -----: |
+        |`UNPUBLISHED`| Não publicado  | Rascunho |
+        |`ACTIVE` |   Ativo     |   Publicado  |
+        | `PAUSED` |   Pausado     | Sem estoque |
+        | `CLOSED` |   Fechado     |   Não publicado |
+        | `WITHOUT_STOCK` |   Sem estoque     |Sem estoque |
+
+
+        Sabendo das equivalências o marketplace consegue ter um norte para quando for realizar as chamadas de atualização no ANYMARKET. 
+
+        ------
+        ## EXISTE PROCESSO DE CATALOGAÇÃO?
+        Um segundo passo para que seja feito o desenvolvimento corretamente e que o seller consiga identificar o real status do anuncio no marketplace é necessário que o parceiro entenda das regras de negocio do marketplace, um caso é se o marketplace vai possuir um processo de catalogação manual ou não.  
+
+        Deixo abaixo alguns cenários e exemplos de retornos que podem ser realizados: 
+
+        ## Cenario 1
+
+        **Descrição:** É enviado notificação do sendProduct e quando a integração realiza a consulta identificado que se trata de um novo SKU para ser registrado no marketplace. Nesse momento o marketplace consulta todos os dados pertinentes e registra no banco de dados e informa o status equivalente.  
+
+        **Resultado esperado:**
+
+        **Sucesso**: 
+        ```json
+        { 
+
+            "idInMarketplace": " MLB00001", 
+            "idInSite": "", 
+            "skuInMarketplace": " CAD001", 
+            "marketplaceStatus": "Ativo", 
+            "idSku": "", 
+            "transmissionStatus": "OK", 
+            "errorMsg": "", 
+            "status": "ACTIVE" 
+        } 
+        ```
+
+        **Critica:**
+        ```json
+        { 
+            "idInMarketplace": " MLB00001", 
+            "idInSite": "", 
+            "skuInMarketplace": " CAD001", 
+            "marketplaceStatus": "Ativo", 
+            "idSku": "", 
+            "transmissionStatus": "ERROR", 
+            "errorMsg": "É necessário informar o atributo “Código do fabricante”", 
+            "status": "UNPUBLISHED" 
+        } 
+        ```
+        ### Caso possua catalogação:
+        > Status deve permanecer como `UNPUBLISHED`
+        ```json
+        { 
+           "idInMarketplace": " MLB00001", 
+           "idInSite": "", 
+           "skuInMarketplace": " CAD001", 
+           "marketplaceStatus": "O Marketplace está processando a atualização", 
+           "idSku": "", 
+           "transmissionStatus": "ok", 
+           "errorMsg": "", 
+           "status": "UNPUBLISHED" 
+        } 
+        ```
+        **Finalizou o processo de catalogação e ficou disponivel no marketplace:**
+        ```json
+        { 
+            "idInMarketplace": " MLB00001", 
+            "idInSite": "", 
+            "skuInMarketplace": " CAD001", 
+            "marketplaceStatus": "Ativo", 
+            "idSku": "", 
+            "transmissionStatus": "OK", 
+            "errorMsg": "", 
+            "status": "ACTIVE" 
+        } 
+        ```
+        -------
+
+        ## CENARIO 2
+
+        **Descrição:** O anuncio está em processo de catalogação, porem foi notificado o sendProduct novamente. Nesse momento o marketplace deve fazer uma consulta do id notificado afim de obter as informações para que no processo de catalogação o marketplace tenha as informações mais atualizadas do anúncio.
+
+        **Retorno esperado caso esteja em processo de catalogação:**
+        ```json
+        { 
+           "idInMarketplace": "", 
+           "idInSite": "", 
+           "skuInMarketplace": "MLB00001", 
+           "marketplaceStatus": "O Marketplace está processando a atualização", 
+           "idSku": "", 
+           "transmissionStatus": "ok", 
+           "errorMsg": "", 
+           "status": "UNPUBLISHED" 
+        } 
+        ```
+        --------
+        ## CENARIO 3
+
+        **Descrição:** Anuncio ativo no marketplace e é recebido a notificação do /sendProduct. Nesse momento o marketplace deve prestar atenção nas propriedades que estão sendo enviadas no /sendProduct pois nela vai conter informações se é para atualizar todos os dados do produto ou somente preço, estoque e status.  
+
+        Ao saber dessas informações o marketplace ao consultar, irá consumir as informações pertinentes a configuração encaminhada.  
+        ```json
+        { 
+            "idInMarketplace": " MLB00001", 
+            "idInSite": "", 
+            "skuInMarketplace": " CAD001", 
+            "marketplaceStatus": "Ativo", 
+            "idSku": "", 
+            "transmissionStatus": "OK", 
+            "errorMsg": "", 
+            "status": " 
+        } 
+        ```
+        Descrição: Anuncio ativo no marketplace e é recebido a notificação do /sendProduct. Nesse momento o marketplace deve prestar atenção nas propriedades que estão sendo enviadas no /sendProduct pois nela vai conter informações se é para atualizar todos os dados do produto ou somente preço, estoque e status.  
+
+        Ao saber dessas informações o marketplace ao consultar, irá consumir as informações pertinentes a configuração encaminhada. Lembrando sempre de manter a transmissão com o status que se encontra no marketplace. 
+
+        **Sucesso:** 
+
+        ```json
+        { 
+            "idInMarketplace": " MLB00001", 
+            "idInSite": "", 
+            "skuInMarketplace": " CAD001", 
+            "marketplaceStatus": "Ativo", 
+            "idSku": "", 
+            "transmissionStatus": "OK", 
+            "errorMsg": "", 
+            "status": " 
+        } 
+        ```
+      tags:
+        - Anúncios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/putskuMarketplace'
+            examples:
+              example-1:
+                value:
+                  idInMarketplace: '00001'
+                  idInSite: '551162751'
+                  skuInMarketplace: '551162751'
+                  marketplaceStatus: ATIVO
+                  idSku: 1540465
+                  transmissionStatus: OK
+                  errorMsg: ''
+                  status: ACTIVE
+        description: ''
+    get:
+      summary: '/skumarketplace/{id}'
+      tags:
+        - Anúncios
+      operationId: get-skumarketplace-id
+      parameters:
+        - $ref: '#/components/parameters/appId'
+        - $ref: '#/components/parameters/token'
+      description: 'Após o envio da notificação do sendProduct, o marketplace deve realizar uma consulta com base no id enviado(idSkuInMarkeplace), obtendo assim os dados atualizados da transmissão, como preço, estoque e demais informações pertinentes ao anuncio.'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/getskuMarketplace-variation'
+              examples:
+                Produto com Variação:
+                  value:
+                    catalog: false
+                    status: UNPUBLISHED
+                    marketplaceStatus: Não publicado - O Marketplace está processando a atualização.
+                    fields:
+                      template: '0'
+                      is_main_sku: 'false'
+                      DISCOUNT_VALUE: '50'
+                      DISCOUNT_TYPE: PERCENT
+                      HAS_DISCOUNT: 'true'
+                      priceFactor: '1.00'
+                    isCatalog: false
+                    title: Produto Teste com variação de Cor - Azul
+                    ean: '1912345678812'
+                    skuInMarketplace: COMVARIAOAZUL
+                    priceFactor: 1
+                    price: 20
+                    discountPrice: 10
+                    idAccount: 25
+                    accountName: Conta Teste
+                    id: 61233
+                    stock:
+                      amount: 10
+                      availableAmount: 10
+                      cost: 100
+                      totalReservation: 0
+                      physicalAmount: 10
+                      stockLocal: Estoque Físico
+                      additionalTime: 0
+                    attributes:
+                      Indicado para: Dia a Dia
+                    sku:
+                      id: 1610303
+                      partnerId: COMVARIAÇÃOAZUL
+                      amount: 10
+                      ean: '1912345678910'
+                      title: Produto Teste com variação de Cor - Azul
+                      price: 20
+                      sellPrice: 10
+                      additionalTime: 0
+                      variations:
+                        - id: 35191285
+                          idInMarketplace: 1992-AZUL
+                          description: Azul
+                          type:
+                            id: 32605
+                            idInMarketplace: 1B629497xK278415
+                            name: Cor
+                            visualVariation: true
+                      product:
+                        id: 2356789
+                        title: Produto Teste com variação de Cor
+                        description: <p>Produto Teste com varia&ccedil;&atilde;o de Cor</p>
+                        model: Produto Teste
+                        definitionPriceScope: SKU
+                        characteristics:
+                          - index: 1
+                            name: Indicado para
+                            value: Dia a Dia
+                        origin:
+                          name: NACIONAL
+                          id: 0
+                        category:
+                          id: 774786
+                          idInMarketplace: '10'
+                          name: Produto com Variação
+                          path: Produto Fisico/Produto com Variação
+                        height: 0
+                        length: 0
+                        width: 0
+                        weight: 0
+                        images:
+                          - id: 2015385
+                            index: 1
+                            variation: Azul
+                            thumbnailUrl: 'http://link-imagem/thumbnail.jpg'
+                            standardUrl: 'http://link-imagem/standard_resolution.jpg'
+                            lowResolutionUrl: 'http://link-imagem/low_resolution.jpg'
+                            originalImage: 'http://link-imagem/original_image.jpg'
+                            url: 'http://link-imagem/original.jpeg'
+                            status: PROCESSED
+                            main: true
+                            standardWidth: 1000
+                            standardHeight: 1000
+                            originalWidth: 1000
+                            originalHeight: 1000
+                          - id: 2015386
+                            index: 2
+                            variation: Verde
+                            thumbnailUrl: 'http://link-imagem/thumbnail.jpg'
+                            standardUrl: 'http://link-imagem/standard_resolution.jpg'
+                            lowResolutionUrl: 'http://link-imagem/low_resolution.jpg'
+                            originalImage: 'http://link-imagem/original_image.jpg'
+                            url: 'http://link-imagem/original.jpeg'
+                            status: PROCESSED
+                            main: true
+                            standardWidth: 1000
+                            standardHeight: 1000
+                            originalWidth: 1200
+                            originalHeight: 1200
+                        brand:
+                          id: 231949
+                          idInMarketplace: '2000016'
+                          name: MARCA TESTE
+                        warrantyTime: 1
+                        warrantyText: '1'
+                        priceFactor: 1
+                        calculatedPrice: false
+                        hasVariations: true
+                        gender: FEMALE
+                        allowAutomaticSkuMarketplaceCreation: true
+                Produto Simples:
+                  value:
+                    catalog: false
+                    status: UNPUBLISHED
+                    marketplaceStatus: unpublished
+                    fields:
+                      template: '0'
+                      is_main_sku: 'true'
+                      DISCOUNT_VALUE: '0'
+                      DISCOUNT_TYPE: PERCENT
+                      HAS_DISCOUNT: 'true'
+                      priceFactor: '1.00'
+                    isCatalog: false
+                    title: Produto de Teste
+                    ean: '8212345678910'
+                    skuInMarketplace: testeAny
+                    priceFactor: 1
+                    price: 10
+                    discountPrice: 10
+                    idAccount: 25
+                    accountName: Teste
+                    id: 61234
+                    stock:
+                      amount: 10
+                      availableAmount: 10
+                      cost: 10
+                      totalReservation: 0
+                      physicalAmount: 10
+                      stockLocal: Estoque Físico
+                      additionalTime: 0
+                    sku:
+                      id: 1609358
+                      partnerId: teste-Any
+                      amount: 10
+                      ean: '8212345678910'
+                      title: Produto de teste
+                      price: 10
+                      sellPrice: 10
+                      additionalTime: 0
+                      product:
+                        id: 2340714
+                        title: teste
+                        description: <p>Teste de descrição dos produtos</p>
+                        model: '123'
+                        definitionPriceScope: SKU
+                        origin:
+                          name: NACIONAL
+                          id: 0
+                        category:
+                          id: 774786
+                          idInMarketplace: '10'
+                          name: Categoria de teste
+                          path: Produto Fisico/Categoria de teste
+                        height: 0
+                        length: 0
+                        width: 0
+                        weight: 0
+                        brand:
+                          id: 231946
+                          idInMarketplace: '2000195'
+                          name: Marca teste
+                          partnerId: '123'
+                        warrantyTime: 1
+                        warrantyText: '1'
+                        priceFactor: 1
+                        calculatedPrice: false
+                        hasVariations: false
+                        allowAutomaticSkuMarketplaceCreation: true
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                description: ''
+                type: object
+                properties:
+                  code:
+                    type: number
+                  message:
+                    type: string
+                    minLength: 1
+                required:
+                  - code
+                  - message
+                x-examples:
+                  example-1:
+                    code: 404
+                    message: 'Recurso com o id ''{{id}}'' não encontrado'
+              examples:
+                example-1:
+                  value:
+                    code: 404
+                    message: 'Recurso com o id ''{{id}}'' não encontrado'
+  '/skumarketplace/{id}/priceStock':
+    parameters:
+      - schema:
+          type: string
+        name: id
+        in: path
+        required: true
+    get:
+      summary: '/skumarketplace/{id}/priceStock'
+      tags:
+        - Anúncios
+      operationId: get-skumarketplace-id-priceStock
+      parameters:
+        - $ref: '#/components/parameters/appId'
+        - $ref: '#/components/parameters/token'
+      description: |-
+        Tem por objetivo retornar os dados pertinentes ao preço de(price), preço por(discountPrice) e estoque(availableAmount).
+
+        Mais informações sobre a utilização desse endpoint acessar o [link](https://anymarketplace.stoplight.io/docs/marketplace-pt/ZG9jOjM4MjcwOTQ4-fluxo-anuncio)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                description: ''
+                type: object
+                properties:
+                  id:
+                    type: number
+                  skuInMarketplace:
+                    type: string
+                    minLength: 1
+                  idInMarketplace:
+                    type: string
+                    minLength: 1
+                  price:
+                    type: number
+                  discountPrice:
+                    type: number
+                  availableAmount:
+                    type: number
+                required:
+                  - id
+                  - skuInMarketplace
+                  - idInMarketplace
+                  - price
+                  - discountPrice
+                  - availableAmount
+                x-examples:
+                  example-1:
+                    id: 62325
+                    skuInMarketplace: '22222'
+                    idInMarketplace: '62325'
+                    price: 59.9
+                    discountPrice: 43.93
+                    availableAmount: 100
+              examples:
+                example-1:
+                  value:
+                    '0': null
+                    id: 12345
+                    skuInMarketplace: '2222'
+                    idInMarketplace: '2525'
+                    price: 50.15
+                    discountPrice: 44.9
+                    availableAmount: 27
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                description: ''
+                type: object
+                properties:
+                  code:
+                    type: number
+                  message:
+                    type: string
+                    minLength: 1
+                required:
+                  - code
+                  - message
+                x-examples:
+                  example-1:
+                    code: 404
+                    message: 'Recurso com o id ''{{id}}'' não encontrado'
+              examples:
+                example-1:
+                  value:
+                    code: 404
+                    message: 'Recurso com o id ''{{id}}'' não encontrado'
+  '/configuration/{id}':
+    parameters:
+      - schema:
+          type: string
+        name: id
+        in: path
+        required: true
+        description: Código de configuração gerado pelo Anymarket
+    get:
+      summary: '/configuration/{id}'
+      tags:
+        - Configuração
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/configuration'
+      operationId: get-api-configuration-id
+      description: Consulta pelo ID da conta as configurações realizadas pelo seller no ANYMARKET.
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: appId
+          required: true
+        - schema:
+            type: string
+          in: header
+          name: token
+          required: true
+  '/orders/{marketPlaceId}/transmissionStatus':
+    parameters:
+      - schema:
+          type: string
+        name: marketPlaceId
+        in: path
+        required: true
+    put:
+      summary: '/orders/{marketPlaceId}/transmissionStatus'
+      tags:
+        - Pedidos
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+      operationId: put-orders-id-transmissionStatus
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderStatusUpdate'
+      description: |-
+        Quando o marketplace receber a notificação de atualização de um pedido, seja ele mudando para FATURADO, ENVIADO, CONCLUIDO ou CANCELADO no endpoint /updateOrderStatusInMarketPlace. 
+
+        Necessariamente o marketplace deve realizar o GET para consultar os dados do pedido e na sequencia utilizar do endpoint citado a cima, removendo a sinalização de sincronização e identificando qual o status do pedido no marketplace. 
+
+        Lembrando que caso não processe, o erro deve ser informado também nesse endpoint.
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: appId
+          required: true
+        - schema:
+            type: string
+          in: header
+          name: token
+          required: true
+  /orders:
+    post:
+      summary: Criando um pedido no ANYMARKET
+      operationId: post-orders
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              examples:
+                example-1:
+                  value:
+                    id: 0
+                    partnerId: string
+                    paymentDate: '2019-08-24T14:15:22Z'
+                    cancelDate: '2019-08-24T14:15:22Z'
+                    cancellationCode: WITHOUT_STOCK
+                    transmissionStatus: OK
+                    marketPlaceShipmentStatus: string
+                    invoice:
+                      accessKey: string
+                      series: string
+                      number: string
+                      date: '2019-08-24T14:15:22Z'
+                      linkNfe: '2019-08-24T14:15:22Z'
+                      invoiceLink: string
+                      cfop: string
+                    deliveryStatus: UNKNOWN
+                    shipmentExceptionDate: '2019-08-24T14:15:22Z'
+                    shipmentExceptionDescription: string
+                    metadata:
+                      string: string
+                    cancelDetails: string
+                    documentIntermediator: string
+                    intermediateRegistrationId: string
+                    documentPaymentInstitution: string
+                    marketPlaceId: string
+                    marketPlaceNumber: string
+                    createdAt: '2019-08-24T14:15:22Z'
+                    discount: 0
+                    freight: 0
+                    productNet: 0
+                    total: 0
+                    interestValue: 0
+                    items:
+                      - partnerId: string
+                        sku:
+                          partnerId: string
+                        amount: 0
+                        unit: 0
+                        gross: 0
+                        total: 0
+                        discount: 0
+                        shippings:
+                          - id: 0
+                            shippingtype: string
+                            shippingCarrierNormalized: string
+                            shippingCarrierTypeNormalized: string
+                    idAccount: 0
+                    accountName: string
+                    status: PENDING
+                    subChannel: string
+                    subChannelNormalized: string
+                    marketPlaceUrl: string
+                    marketPlaceStatus: string
+                    marketPlaceStatusComplement: string
+                    shipping:
+                      city: string
+                      state: string
+                      stateNameNormalized: string
+                      country: string
+                      countryAcronymNormalized: string
+                      countryNameNormalized: string
+                      number: string
+                      neighborhood: string
+                      street: string
+                      comment: string
+                      reference: string
+                      zipCode: string
+                      address: string
+                      promisedShippingTime: '2019-08-24T14:15:22Z'
+                      receiverName: string
+                    billingAddress:
+                      city: string
+                      state: string
+                      stateNameNormalized: string
+                      country: string
+                      countryAcronymNormalized: string
+                      countryNameNormalized: string
+                      number: string
+                      neighborhood: string
+                      street: string
+                      comment: string
+                      reference: string
+                      zipCode: string
+                    buyer:
+                      Long: 0
+                      marketPlaceId: string
+                      name: string
+                      email: string
+                      document: string
+                      documentType: string
+                      phone: string
+                      cellPhone: string
+                      documentNumberNormalized: string
+                    payments:
+                      - method: string
+                        status: string
+                        value: 0
+                        installments: 0
+                        marketplaceId: string
+                        paymentMethodNormalized: string
+                        paymentDetailNormalized: string
+                        dueDate: '2019-08-24T14:15:22Z'
+                    observation: string
+                    anymarketAddress:
+                      country: string
+                      state: string
+                      city: string
+                      zipCode: string
+                      neighborhood: string
+                      address: string
+                      street: string
+                      number: string
+                      comment: string
+                      receiverName: string
+                      promisedShippingTime: '2019-08-24T14:15:22Z'
+                    tracking:
+                      url: string
+                      number: string
+                      carrier: string
+                      carrierDocument: string
+                      date: '2019-08-24T14:15:22Z'
+                      estimateDate: '2019-08-24T14:15:22Z'
+                      shippedDate: '2019-08-24T14:15:22Z'
+                      deliveredDate: '2019-08-24T14:15:22Z'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/400'
+              examples:
+                Example - 1:
+                  value:
+                    code: '400'
+                    message: Erro ao criar o recurso. Somente é possivel criar recurso com status x ou y.
+                Example - 2:
+                  value:
+                    code: '400'
+                    message: 'Erro ao criar o pedido. Já existe um pedido com id [%s].'
+      parameters:
+        - schema:
+            type: boolean
+          in: query
+          name: orderNewPattern
+      description: ''
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderPost'
+            examples:
+              example-1:
+                value:
+                  marketPlaceId: string
+                  marketPlaceNumber: string
+                  createdAt: '2019-08-24T14:15:22Z'
+                  discount: 0
+                  freight: 0
+                  productNet: 0
+                  total: 0
+                  interestValue: 0
+                  items:
+                    - partnerId: string
+                      sku:
+                        partnerId: string
+                      amount: 0
+                      unit: 0
+                      gross: 0
+                      total: 0
+                      discount: 0
+                      shippings:
+                        - id: 0
+                          shippingtype: string
+                          shippingCarrierNormalized: string
+                          shippingCarrierTypeNormalized: string
+                  idAccount: 0
+                  accountName: string
+                  status: PENDING
+                  subChannel: string
+                  subChannelNormalized: string
+                  marketPlaceUrl: string
+                  marketPlaceStatus: string
+                  marketPlaceStatusComplement: string
+                  shipping:
+                    city: string
+                    state: string
+                    stateNameNormalized: string
+                    country: string
+                    countryAcronymNormalized: string
+                    countryNameNormalized: string
+                    number: string
+                    neighborhood: string
+                    street: string
+                    comment: string
+                    reference: string
+                    zipCode: string
+                    address: string
+                    promisedShippingTime: '2019-08-24T14:15:22Z'
+                    receiverName: string
+                  billingAddress:
+                    city: string
+                    state: string
+                    stateNameNormalized: string
+                    country: string
+                    countryAcronymNormalized: string
+                    countryNameNormalized: string
+                    number: string
+                    neighborhood: string
+                    street: string
+                    comment: string
+                    reference: string
+                    zipCode: string
+                  buyer:
+                    Long: 0
+                    marketPlaceId: string
+                    name: string
+                    email: string
+                    document: string
+                    documentType: string
+                    phone: string
+                    cellPhone: string
+                    documentNumberNormalized: string
+                  payments:
+                    - method: string
+                      status: string
+                      value: 0
+                      installments: 0
+                      marketplaceId: string
+                      paymentMethodNormalized: string
+                      paymentDetailNormalized: string
+                      dueDate: '2019-08-24T14:15:22Z'
+                  observation: string
+                  anymarketAddress:
+                    country: string
+                    state: string
+                    city: string
+                    zipCode: string
+                    neighborhood: string
+                    address: string
+                    street: string
+                    number: string
+                    comment: string
+                    receiverName: string
+                    promisedShippingTime: '2019-08-24T14:15:22Z'
+                  tracking:
+                    url: string
+                    number: string
+                    carrier: string
+                    carrierDocument: string
+                    date: '2019-08-24T14:15:22Z'
+                    estimateDate: '2019-08-24T14:15:22Z'
+                    shippedDate: '2019-08-24T14:15:22Z'
+                    deliveredDate: '2019-08-24T14:15:22Z'
+                  documentIntermediator: string
+                  intermediateRegistrationId: string
+                  documentPaymentInstitution: string
+      tags:
+        - Pedidos
+    get:
+      summary: /orders
+      operationId: get-orders
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_Order'
+      tags:
+        - Pedidos
+      description: Obtém todos os pedidos do marketplace na base do cliente.
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/sort'
+        - schema:
+            type: string
+            enum:
+              - PENDING
+              - PAID
+              - INVOICED
+              - SHIPPED
+              - DELIVERED
+              - CANCELED
+          in: query
+          name: status
+          description: Status do pedido
+        - schema:
+            type: string
+            format: date-time
+          in: query
+          name: createdAfter
+          description: Data da criação do pedido
+        - schema:
+            type: string
+          in: header
+          name: appId
+          required: true
+        - schema:
+            type: string
+          in: header
+          name: token
+          required: true
+  '/orders/{id}':
+    parameters:
+      - schema:
+          type: string
+        name: id
+        in: path
+        required: true
+        description: Código do pedido gerado pelo Anymarket
+    get:
+      summary: '/orders/{marketPlaceId}'
+      tags:
+        - Pedidos
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+      operationId: get-orders-id
+      description: Consulta os detalhes de um pedido
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: appId
+          required: true
+        - schema:
+            type: string
+          in: header
+          name: token
+          required: true
+  '/orders/{marketPlaceId}/markAsPaid':
+    parameters:
+      - schema:
+          type: string
+        name: marketPlaceId
+        in: path
+        required: true
+        description: Id do pedido no marketplace
+    put:
+      summary: '/orders/{marketPlaceId}/markAsPaid'
+      tags:
+        - Pedidos
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+      operationId: put-orders-id-markAsPaid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanceledStatusDTO'
+            examples:
+              example-1:
+                value:
+                  date: '2022-02-07T10:56:42-03:00'
+      description: Utilizado para que o middleware marque o pedido como PAGO no ANYMARKET.
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: appId
+        - schema:
+            type: string
+          in: header
+          name: token
+  '/orders/{marketPlaceId}/markAsCanceled':
+    parameters:
+      - schema:
+          type: string
+        name: marketPlaceId
+        in: path
+        required: true
+    put:
+      summary: '/orders/{marketPlaceId}/markAsCanceled'
+      tags:
+        - Pedidos
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+      operationId: put-id-markAsCanceled
+      description: Utilizado para que o middleware marque o pedido como CANCELADO no ANYMARKET.
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: appId
+          required: true
+        - schema:
+            type: string
+          in: header
+          name: token
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/markAsCanceled'
+            examples:
+              example-1:
+                value:
+                  date: '2022-02-07T10:56:42-03:00'
+    description: Marcar pedido como Cancelado
+  '/orders/{marketPlaceId}/markAsInvoiced':
+    parameters:
+      - schema:
+          type: string
+        name: marketPlaceId
+        in: path
+        required: true
+    put:
+      summary: '/orders/{marketPlaceId}/markAsInvoiced'
+      tags:
+        - Pedidos
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+      operationId: put-orders-id-markAsInvoiced
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanceledStatusDTO'
+            examples:
+              example-1:
+                value:
+                  date: '2022-02-07T10:56:42-03:00'
+      description: |-
+        Utilizado para que o middleware marque o pedido como FATURADO no ANYMARKET.
+
+        Apenas utilizado quando o marketplace possui formas de envios próprias, como modalidade fulfillment ou emissão de etiquetas. 
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: appId
+          required: true
+        - schema:
+            type: string
+          in: header
+          name: token
+          required: true
+  '/orders/{marketPlaceId}/markAsShipped':
+    parameters:
+      - schema:
+          type: string
+        name: marketPlaceId
+        in: path
+        required: true
+    put:
+      summary: '/orders/{marketPlaceId}/markAsShipped'
+      tags:
+        - Pedidos
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+      operationId: put-id-markAsShipped
+      description: |-
+        Utilizado para que o middleware marque o pedido como ENVIADO no ANYMARKET.
+
+        Apenas utilizado quando o marketplace possui formas de envios próprias, como modalidade fulfillment ou emissão de etiquetas. 
+      parameters:
+        - in: header
+          name: appId
+          required: true
+        - in: header
+          name: token
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/markAsShipped'
+            examples:
+              example-1:
+                value:
+                  status: SHIPPED
+                  url: string
+                  number: string
+                  carrier: string
+                  estimateDate: string
+                  shippedDate: string
+  '/orders/{marketPlaceId}/markAsDelivered':
+    parameters:
+      - schema:
+          type: string
+        name: marketPlaceId
+        in: path
+        required: true
+    put:
+      summary: '/orders/{marketPlaceId}/markAsDelivered'
+      tags:
+        - Pedidos
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+      operationId: put-orders-id-markAsDelivered
+      description: |-
+        Utilizado para que o middleware marque o pedido como ENTREGUE no ANYMARKET.
+
+        Apenas utilizado quando o marketplace possui formas de envios próprias, como modalidade fulfillment ou emissão de etiquetas.
+      parameters:
+        - in: header
+          name: appId
+          description: 'Identificador único do marketplace, fornecido pela equipe ANYMARKET.'
+          required: true
+          schema: {}
+        - in: header
+          name: token
+          description: 'Identificador do lojista, fornecido pelo ANYMARKET para os lojistas.'
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/markAsDelivered'
+            examples:
+              example-1:
+                value:
+                  deliveredDate: string
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/markAsDelivered'
+            examples:
+              example-1:
+                value: '[object Object]'
+        description: ''
+  /freight:
+    post:
+      summary: /freight
+      operationId: post-freight
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                description: ''
+                type: object
+                x-examples:
+                  example-1:
+                    zipCode: '87030030'
+                    products:
+                      - skuId: '7114000564'
+                        amount: 1
+                        dimensions:
+                          height: 10
+                          width: 15
+                          weight: 0.37
+                          length: 25
+                        stockAmount: 66
+                        additionalDeliveryTime: 0
+                        price: 549.9
+                        discountPrice: 549.9
+                    quotes:
+                      - carrierName: Carriers
+                        serviceName: Carriers
+                        deliveryTime: 7
+                        freightType: express
+                        price: 8.96
+                      - carrierName: Loggi
+                        serviceName: Loggi Outras Praças
+                        deliveryTime: 4
+                        freightType: normal
+                        price: 13.39
+                      - carrierName: Sequoia Log
+                        serviceName: Sequoia Log Standard
+                        deliveryTime: 6
+                        freightType: normal
+                        price: 15.64
+                      - carrierName: Total
+                        serviceName: Total Express
+                        deliveryTime: 5
+                        freightType: normal
+                        price: 16.65
+                      - carrierName: Correios
+                        serviceName: Correios Sedex
+                        deliveryTime: 4
+                        freightType: normal
+                        price: 44.42
+                      - carrierName: Dominalog
+                        serviceName: Dominalog Itapevi
+                        deliveryTime: 12
+                        freightType: normal
+                        price: 47.86
+                      - carrierName: Translaguna
+                        serviceName: Translaguna Itapevi
+                        deliveryTime: 11
+                        freightType: normal
+                        price: 51.9
+                      - carrierName: Total
+                        serviceName: Total Express Medio Rodo
+                        deliveryTime: 6
+                        freightType: express
+                        price: 53.35
+                      - carrierName: Translaguna Cajamar
+                        serviceName: Translaguna Cajamar
+                        deliveryTime: 11
+                        freightType: normal
+                        price: 57.09
+                      - carrierName: Jamef
+                        serviceName: Jamef Standard
+                        deliveryTime: 3
+                        freightType: normal
+                        price: 65.65
+                      - carrierName: Direcional
+                        serviceName: Direcional Itapevi
+                        deliveryTime: 7
+                        freightType: normal
+                        price: 68.72
+                      - carrierName: Prime
+                        serviceName: Prime Itapevi
+                        deliveryTime: 10
+                        freightType: normal
+                        price: 70.75
+                properties:
+                  zipCode:
+                    type: string
+                    minLength: 1
+                    description: Código de destino
+                  products:
+                    type: array
+                    uniqueItems: true
+                    minItems: 1
+                    items:
+                      type: object
+                      properties:
+                        skuId:
+                          type: string
+                          minLength: 1
+                          description: SKU do produto enviado pelo ANYMARKET (skuInMarketplace)
+                        amount:
+                          type: number
+                          description: Quantidade para cotação de frete
+                        dimensions:
+                          type: object
+                          description: Dimensões do Produto
+                          properties:
+                            height:
+                              type: number
+                              description: Altura
+                            width:
+                              type: number
+                              description: Largura
+                            weight:
+                              type: number
+                              description: Peso
+                            length:
+                              type: number
+                              description: Comprimento
+                          required:
+                            - height
+                            - width
+                            - weight
+                            - length
+                        stockAmount:
+                          type: number
+                          description: Quantidade de estoque disponível
+                        additionalDeliveryTime:
+                          type: number
+                          description: Prazo adicional (Crossdocking)
+                        price:
+                          type: number
+                          description: Preço "De"
+                        discountPrice:
+                          type: number
+                          description: Preço "Por"
+                      required:
+                        - skuId
+                        - amount
+                        - stockAmount
+                        - additionalDeliveryTime
+                        - price
+                        - discountPrice
+                  quotes:
+                    type: array
+                    uniqueItems: true
+                    minItems: 1
+                    items:
+                      type: object
+                      properties:
+                        carrierName:
+                          type: string
+                          minLength: 1
+                          description: Nome da transportadora
+                        serviceName:
+                          type: string
+                          minLength: 1
+                          description: Tipo do serviço
+                        deliveryTime:
+                          type: number
+                          description: Tempo de entrega (Sem Crossdocking)
+                        freightType:
+                          type: string
+                          minLength: 1
+                          description: Tipo de frete (Normal ou Expresso)
+                          enum:
+                            - normal
+                            - express
+                        price:
+                          type: number
+                          description: Valor do frete
+                      required:
+                        - carrierName
+                        - serviceName
+                        - deliveryTime
+                        - freightType
+                        - price
+                required:
+                  - zipCode
+                  - products
+                  - quotes
+              examples:
+                Frete - Varias Transportadoras:
+                  value:
+                    zipCode: '87030030'
+                    products:
+                      - skuId: '7114000564'
+                        amount: 1
+                        dimensions:
+                          height: 10
+                          width: 15
+                          weight: 0.37
+                          length: 25
+                        stockAmount: 66
+                        additionalDeliveryTime: 0
+                        price: 549.9
+                        discountPrice: 549.9
+                    quotes:
+                      - carrierName: Carriers
+                        serviceName: Carriers
+                        deliveryTime: 7
+                        freightType: express
+                        price: 8.96
+                      - carrierName: Loggi
+                        serviceName: Loggi Outras Praças
+                        deliveryTime: 4
+                        freightType: normal
+                        price: 13.39
+                      - carrierName: Sequoia Log
+                        serviceName: Sequoia Log Standard
+                        deliveryTime: 6
+                        freightType: normal
+                        price: 15.64
+                      - carrierName: Total
+                        serviceName: Total Express
+                        deliveryTime: 5
+                        freightType: normal
+                        price: 16.65
+                      - carrierName: Correios
+                        serviceName: Correios Sedex
+                        deliveryTime: 4
+                        freightType: normal
+                        price: 44.42
+                      - carrierName: Dominalog
+                        serviceName: Dominalog Itapevi
+                        deliveryTime: 12
+                        freightType: normal
+                        price: 47.86
+                      - carrierName: Translaguna
+                        serviceName: Translaguna Itapevi
+                        deliveryTime: 11
+                        freightType: normal
+                        price: 51.9
+                      - carrierName: Total
+                        serviceName: Total Express Medio Rodo
+                        deliveryTime: 6
+                        freightType: express
+                        price: 53.35
+                      - carrierName: Translaguna Cajamar
+                        serviceName: Translaguna Cajamar
+                        deliveryTime: 11
+                        freightType: normal
+                        price: 57.09
+                      - carrierName: Jamef
+                        serviceName: Jamef Standard
+                        deliveryTime: 3
+                        freightType: normal
+                        price: 65.65
+                      - carrierName: Direcional
+                        serviceName: Direcional Itapevi
+                        deliveryTime: 7
+                        freightType: normal
+                        price: 68.72
+                      - carrierName: Prime
+                        serviceName: Prime Itapevi
+                        deliveryTime: 10
+                        freightType: normal
+                        price: 70.75
+                Frete- Apenas um retorno:
+                  value:
+                    zipCode: '87030030'
+                    products:
+                      - skuId: '00029160002'
+                        amount: 1
+                        dimensions:
+                          height: 10
+                          width: 15
+                          weight: 0.37
+                          length: 25
+                        stockAmount: 679
+                        additionalDeliveryTime: 0
+                        price: 279
+                        discountPrice: 209.9
+                    quotes:
+                      - carrierName: Total
+                        serviceName: Total Express
+                        deliveryTime: 11
+                        freightType: normal
+                        price: 55.72
+                Frete - SKU não encontrado ou Publicação UNPUBLISHED:
+                  value:
+                    missingSkus:
+                      '0002916002': 1
+                Frete - Prazo Adicional em dias (Crossdocking):
+                  value:
+                    zipCode: '87030030'
+                    products:
+                      - skuId: '0140420009'
+                        amount: 1
+                        dimensions:
+                          height: 10
+                          width: 15
+                          weight: 0.37
+                          length: 25
+                        stockAmount: 972
+                        additionalDeliveryTime: 3
+                        price: 679.9
+                        discountPrice: 639.9
+                    quotes:
+                      - carrierName: Braspress
+                        serviceName: Braspress Standard 2
+                        deliveryTime: 6
+                        freightType: normal
+                        price: 16.94
+                      - carrierName: Loggi
+                        serviceName: Loggi Express - ES
+                        deliveryTime: 2
+                        freightType: normal
+                        price: 17.8
+                      - carrierName: Rede Sul
+                        serviceName: Rede Sul Standard
+                        deliveryTime: 2
+                        freightType: normal
+                        price: 18.69
+                      - carrierName: JadLog
+                        serviceName: Jadlog Package
+                        deliveryTime: 5
+                        freightType: normal
+                        price: 18.69
+                      - carrierName: JadLog
+                        serviceName: Jadlog Package Origem Vitoria
+                        deliveryTime: 5
+                        freightType: normal
+                        price: 18.69
+                      - carrierName: JadLog
+                        serviceName: Jadlog .COM
+                        deliveryTime: 4
+                        freightType: express
+                        price: 19.59
+                      - carrierName: JadLog
+                        serviceName: Jadlog .COM Origem Vitoria
+                        deliveryTime: 4
+                        freightType: normal
+                        price: 19.59
+                      - carrierName: Infoar Recalculo Protheus
+                        serviceName: Meridional Origem Vitoria
+                        deliveryTime: 5
+                        freightType: express
+                        price: 40.61
+                      - carrierName: Sequoia
+                        serviceName: SEQUOIA - ES
+                        deliveryTime: 6
+                        freightType: normal
+                        price: 49.07
+                      - carrierName: Prime Express
+                        serviceName: Direcional ES - Express
+                        deliveryTime: 9
+                        freightType: normal
+                        price: 52.33
+            application/xml:
+              schema:
+                type: object
+                properties: {}
+      description: |
+        Marketplaces podem estar obtendo a cotação de frete através do ANYMARKET. Com isso basta que seja encaminhado os dados de cotação, que o ANYMARKET se encarrega de realizar a cotação com base nas parametrizações que o seller realizou na plataforma. (tabelas de frete ou utilização de algum gateway de frete.)
+
+        Obtém a consulta de frete para os dados encaminhados.
+
+        > #### Pontos de atenção:
+        >- Prazo de crossdocking não é somado automaticamente, a integração deve fazer o cálculo caso não registre o dado no momento da criação do produto.
+        >- Quando o seller possui planilhas de frete no ANYMARKET o dado é retornado em dias corridos.
+        >- Quando o seller utiliza de algum gateway de frete conectado ao ANYMARKET, apenas é repassado as informações, é necessária uma avaliação com o seller se é dias corridos ou uteis.
+        >- O valor do skuId corresponde ao skuInMarketplace.
+        >- Recomendado a cotação de um sku por request.
+        >- Toda a infraestrutura ANYMARKET de servidores, está em um datacenter localizado no Estado da Virgínia, nos EUA. (https://suporteanymarket.freshdesk.com/pt-BR/support/solutions/articles/19000128745-migrac%C3%A3o-para-a-virg%C3%ADnia)
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: token
+          required: true
+          description: Token do Seller no ANYMARKET
+        - schema:
+            type: string
+          in: header
+          name: appId
+          required: true
+          description: ID do Marketplace fornecido pelo ANYMARKET
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/freight'
+            examples:
+              example-1:
+                value:
+                  zipCode: '87030030'
+                  additionalPercentual: 0
+                  products:
+                    - skuId: '7114000564'
+                      amount: 1
+                      dimensions:
+                        length: 25
+                        width: 15
+                        height: 10
+                        weight: 0.37
+      tags:
+        - Cotação de Frete
+components:
+  securitySchemes: {}
+  schemas:
+    '400':
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          value:
+            code: '400'
+            message: Erro ao criar o recurso. Somente é possivel criar recurso com status x ou y.
+      properties:
+        code:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          minLength: 1
+      examples:
+        - code: '400'
+          message: Erro ao criar o recurso. Somente é possivel criar recurso com status x ou y.
+      x-tags:
+        - erro
+      title: 400 - Error
+    '404':
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          value:
+            code: '404'
+            message: Recurso com o id 'xxx' não encontrado.
+      properties:
+        code:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          minLength: 1
+      examples:
+        - code: '404'
+          message: Recurso com o id 'xxx' não encontrado.
+      x-tags:
+        - erro
+      title: 404 - Error
+    '422':
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          value:
+            code: '422'
+            message: O campo informado esta fora das especificações.
+      properties:
+        code:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          minLength: 1
+      examples:
+        - code: '422'
+          message: O campo informado esta fora das especificações.
+      x-tags:
+        - erro
+      title: 422 - Error
+    '500':
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          value:
+            code: '500'
+            message: Internal Server Error
+      properties:
+        code:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          minLength: 1
+      examples:
+        - code: '500'
+          message: Internal Server Error
+      x-tags:
+        - erro
+      title: 500 - Error
+    SkuMarketplace:
+      description: ''
+      examples:
+        - id: 0
+          idInMarketplace: string
+          marketPlace: B2W
+          index: 0
+          publicationStatus: string
+          marketplaceStatus: string
+          transmissionStatus: string
+          errorMsg: string
+          skuMarketPlaceMessage:
+            message: string
+            key: string
+            parameters:
+              parameter1: value1
+              parameter2: value2
+          price: 0
+          priceFactor: 1
+          discountPrice: 0
+          skuInMarketplace: string
+          marketplaceItemCode: string
+          fields:
+            title: string
+            template: string
+            priceFactor: string
+            DISCOUNT_TYPE: string
+            DISCOUNT_VALUE: string
+            HAS_DISCOUNT: string
+            CONCAT_ATTRIBUTES: string
+            delivery_type: string
+            SHIPMENT: string
+            crossDocking: string
+            CUSTOM_DESCRIPTION: string
+            EAN: string
+            MANUFACTURING_TIME: string
+            VALUE: string
+            PERCENT: string
+            bronze_price: string
+            bronze_price_factor: string
+            buying_mode: string
+            category_with_variation: string
+            condition: string
+            free_price: string
+            free_price_factor: string
+            free_shipping: string
+            gold_premium_price: string
+            gold_premium_price_factor: string
+            gold_price: string
+            gold_price_factor: string
+            gold_pro_price: string
+            gold_pro_price_factor: string
+            gold_special_price: string
+            gold_special_price_factor: string
+            listing_type_id: string
+            shipping_local_pick_up: string
+            shipping_mode: string
+            silver_price: string
+            silver_price_factor: string
+          availableStock:
+            amount: 0
+            availableAmount: 0
+            cost: 0
+            totalReservation: 0
+            physicalAmount: 0
+            reservedPending: 0
+            reservedPaid: 0
+            totalInInvoicedStatus: 0
+            stockLocal: string
+            additionalTime: 0
+          attributes:
+            cor: azul
+            tamanho: grande
+            material: inox
+          idAccount: 0
+          accountName: string
+          origin: BIND
+          isCatalog: true
+          permalink: string
+          title: string
+          ean: string
+      title: SkuMarketplace
+      x-examples:
+        example-1:
+          value:
+            id: -9223372036854776000
+            idInMarketplace: string
+            marketPlace: string
+            index: 0
+            publicationStatus: string
+            marketplaceStatus: string
+            transmissionStatus: string
+            errorMsg: string
+            skuMarketPlaceMessage:
+              message: string
+              key: string
+              parameters:
+                parameter1: value1
+                parameter2: value2
+            price: 0
+            priceFactor: 0
+            discountPrice: 0
+            skuInMarketplace: string
+            marketplaceItemCode: string
+            fields:
+              title: string
+              template: string
+              priceFactor: string
+              DISCOUNT_TYPE: string
+              DISCOUNT_VALUE: string
+              HAS_DISCOUNT: string
+              CONCAT_ATTRIBUTES: string
+              delivery_type: string
+              SHIPMENT: string
+              crossDocking: string
+              CUSTOM_DESCRIPTION: string
+              EAN: string
+              MANUFACTURING_TIME: string
+              VALUE: string
+              PERCENT: string
+              bronze_price: string
+              bronze_price_factor: string
+              buying_mode: string
+              category_with_variation: string
+              condition: string
+              free_price: string
+              free_price_factor: string
+              free_shipping: string
+              gold_premium_price: string
+              gold_premium_price_factor: string
+              gold_price: string
+              gold_price_factor: string
+              gold_pro_price: string
+              gold_pro_price_factor: string
+              gold_special_price: string
+              gold_special_price_factor: string
+              listing_type_id: string
+              shipping_local_pick_up: string
+              shipping_mode: string
+              silver_price: string
+              silver_price_factor: string
+            availableStock:
+              amount: 0
+              availableAmount: 0
+              cost: 0
+              totalReservation: 0
+              physicalAmount: 0
+              reservedPending: 0
+              reservedPaid: 0
+              totalInInvoicedStatus: 0
+              stockLocal: string
+              additionalTime: 0
+            attributes:
+              cor: azul
+              tamanho: grande
+              material: inox
+            idAccount: 0
+            accountName: string
+            origin: BIND
+            isCatalog: true
+            permalink: string
+            title: string
+            ean: string
+            status: string
+            idInSite: string
+            endDate: '2019-08-24T14:15:22Z'
+            stock:
+              amount: 0
+              availableAmount: 0
+              cost: 0
+              totalReservation: 0
+              physicalAmount: 0
+              reservedPending: 0
+              reservedPaid: 0
+              totalInInvoicedStatus: 0
+              stockLocal: string
+              additionalTime: 0
+            sku:
+              id: -9223372036854776000
+              partnerId: string
+              amount: 0
+              ean: string
+              title: string
+              price: 0
+              sellPrice: 0
+              additionalTime: 0
+              variations:
+                - id: 0
+                  idInMarketplace: string
+                  description: string
+                  type:
+                    id: 0
+                    idInMarketplace: string
+                    name: string
+                    partnerId: string
+                    visualVariation: true
+                  partnerId: string
+              product:
+                id: 0
+                title: string
+                description: string
+                model: string
+                nbm:
+                  id: string
+                  description: string
+                videoUrl: string
+                definitionPriceScope: COST
+                characteristics:
+                  - index: 0
+                    name: string
+                    value: string
+                origin:
+                  id: 0
+                  name: NACIONAL
+                category:
+                  id: 0
+                  idInMarketplace: string
+                  name: string
+                  path: string
+                height: 0
+                length: 0
+                width: 0
+                weight: 0
+                images:
+                  - id: 0
+                    index: 0
+                    variation: string
+                    thumbnailUrl: string
+                    standardUrl: string
+                    lowResolutionUrl: string
+                    originalImage: string
+                    url: string
+                    statusMessage: string
+                    status: UNPROCESSED
+                    main: true
+                    standardWidth: string
+                    standardHeight: string
+                    originalWidth: string
+                    originalHeight: string
+                brand:
+                  id: 0
+                  idInMarketplace: string
+                  name: string
+                  partnerId: string
+                warrantyTime: 0
+                warrantyText: string
+                priceFactor: 0
+                calculatedPrice: true
+                hasVariations: true
+                gender: MALE
+                allowAutomaticSkuMarketplaceCreation: true
+            mainSkuMarketplace: 0
+      allOf:
+        - $ref: '#/components/schemas/SkuMarketPlaceBase'
+        - properties:
+            id:
+              type: integer
+              description: Id do anúncio no ANYMARKET
+              format: int64
+            stock:
+              $ref: ./remote_pt.yaml#/components/schemas/Stock
+            attributes:
+              $ref: ./remote_pt.yaml#/components/schemas/Attributes
+            sku:
+              $ref: ./remote_pt.yaml#/components/schemas/SKU
+            mainSkuMarketplace:
+              type: integer
+              description: Status da publicação
+              format: int64
+              minimum: 0
+              exclusiveMaximum: true
+      required:
+        - id
+        - attributes
+        - sku
+        - mainSkuMarketplace
+    SkuMarketPlacePut:
+      title: SkuMarketPlacePut
+      type: object
+      properties:
+        idInMarketplace:
+          type: string
+        status:
+          type: string
+        marketplaceStatus:
+          type: string
+        transmissionStatus:
+          type: string
+        errorMsg:
+          type: string
+        skuMarketPlaceMessage:
+          $ref: ./remote_pt.yaml#/components/schemas/SkuMarketPlaceMessage
+        idInSite:
+          type: string
+        fields:
+          $ref: ./remote_pt.yaml#/components/schemas/SkuMarketplaceField
+        isCatalog:
+          type: boolean
+        permalink:
+          type: string
+        endDate:
+          type: string
+          format: date-time
+    SkuMarketPlaceBase:
+      title: SkuMarketPlaceBase
+      x-examples: {}
+      allOf:
+        - $ref: '#/components/schemas/SkuMarketPlacePut'
+        - properties:
+            title:
+              type: string
+            ean:
+              type: string
+            skuInMarketplace:
+              type: string
+            priceFactor:
+              type: number
+              format: double
+              minimum: 0
+              exclusiveMaximum: true
+            price:
+              type: number
+              format: double
+              minimum: 0
+              exclusiveMaximum: true
+            discountPrice:
+              type: number
+              format: double
+              minimum: 0
+              exclusiveMaximum: true
+            idAccount:
+              type: integer
+              format: int64
+              minimum: 0
+              exclusiveMaximum: true
+            accountName:
+              type: string
+            marketPlace:
+              type: string
+    OrderPut:
+      title: OrderPut
+      type: object
+      properties:
+        marketPlaceUrl:
+          type: string
+        marketPlaceStatus:
+          type: string
+          description: 'Campo de string, onde o marketplace pode definir a Situação do pedido no marketplace.'
+          example: '"Pedido Pendente", "Aguardando Pagamento", "Pago", "Aguardando faturamento", etc'
+        marketPlaceStatusComplement:
+          type: string
+        shipping:
+          $ref: ./remote_pt.yaml#/components/schemas/ApiShipping
+        billingAddress:
+          $ref: ./remote_pt.yaml#/components/schemas/ApiBillingAddress
+        buyer:
+          $ref: ./remote_pt.yaml#/components/schemas/ApiBuyer
+        payments:
+          type: array
+          items:
+            $ref: ./remote_pt.yaml#/components/schemas/ApiPayment
+        observation:
+          type: string
+        anymarketAddress:
+          $ref: ./remote_pt.yaml#/components/schemas/ApiAnymarketOrderAddress
+        tracking:
+          $ref: ./remote_pt.yaml#/components/schemas/ApiTracking
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        documentIntermediator:
+          type: string
+          description: Documento do Intermediador
+        intermediateRegistrationId:
+          type: string
+          description: Id do cliente no Intermediador
+        documentPaymentInstitution:
+          type: string
+          description: Documento da operador que realiza a transação do Pagamento.
+        subChannel:
+          type: string
+        subChannelNormalized:
+          type: string
+    OrderItem:
+      title: OrderItem
+      type: object
+      properties:
+        partnerId:
+          type: string
+        sku:
+          type: object
+          properties:
+            partnerId:
+              type: string
+              description: SKU do produto no ANYMARKET ja aplicado o REGEX (skuInMarketplace)
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+          description: Quantidade
+        unit:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+          description: Valor Unitário
+        gross:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+          description: Valor bruto sem desconto (amount * unit)
+        total:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+          description: 'Total é : (gross * unit ) - discount'
+        discount:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: true
+          description: Valor de Desconto
+        shippings:
+          type: array
+          items:
+            $ref: ./remote_pt.yaml#/components/schemas/ApiOrderItemShipping
+    OrderPost:
+      title: OrderPost
+      allOf:
+        - type: object
+          properties:
+            marketPlaceId:
+              type: string
+              description: Id interno do pedido no marketplace
+            marketPlaceNumber:
+              type: string
+              description: Id público do pedido no marketplace
+            createdAt:
+              type: string
+              format: date-time
+              description: Data de criação do pedido
+              example: '"2022-03-04T10:50:00-03:00"'
+            discount:
+              type: number
+              format: double
+              minimum: 0
+              exclusiveMaximum: true
+              description: Valor de Desconto no valor do pedido
+            freight:
+              type: number
+              format: double
+              minimum: 0
+              exclusiveMaximum: true
+              description: Valor de Frete
+            productNet:
+              type: number
+              format: double
+              minimum: 0
+              exclusiveMaximum: true
+              description: Total bruto sem o valor de frete (somatória de todos os totais de itens)
+            total:
+              type: number
+              format: double
+              minimum: 0
+              exclusiveMaximum: true
+              description: Total do pedido + Valor de Frete + Juros - Desconto
+            interestValue:
+              type: number
+              format: double
+              minimum: 0
+              exclusiveMaximum: true
+              description: Valor de Juros
+            items:
+              format: double
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderItem'
+            idAccount:
+              type: integer
+              format: int64
+              minimum: 0
+              exclusiveMaximum: true
+              description: Id da conta (Gerado no saveAccount)
+            accountName:
+              type: string
+              description: Nome da Conta
+            status:
+              type: string
+              enum:
+                - PENDING
+                - PAID
+                - INVOICED
+                - SHIPPED
+                - DELIVERED
+                - CANCELED
+            subChannel:
+              type: string
+            subChannelNormalized:
+              type: string
+        - $ref: '#/components/schemas/OrderPut'
+      x-examples: {}
+      description: ''
+    Invoice:
+      title: Invoice
+      type: object
+      properties:
+        accessKey:
+          type: string
+        series:
+          type: string
+        number:
+          type: string
+        date:
+          type: string
+          format: date-time
+        linkNfe:
+          type: string
+          format: date-time
+        invoiceLink:
+          type: string
+        cfop:
+          type: string
+    Order:
+      title: Order
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+              minimum: 0
+              exclusiveMaximum: true
+            partnerId:
+              type: string
+            paymentDate:
+              type: string
+              format: date-time
+            cancelDate:
+              type: string
+              format: date-time
+            cancellationCode:
+              type: string
+              enum:
+                - WITHOUT_STOCK
+                - SHIPPING_ADDRESS
+                - CUSTOMER_EXCHANGE
+                - GENERAL_ADJUSTMENT
+                - CUSTOMER_RETURN
+                - BUYER_CANCELED
+                - OTHER
+            transmissionStatus:
+              type: string
+              enum:
+                - OK
+                - ERROR
+                - WAITING
+            marketPlaceShipmentStatus:
+              type: string
+            invoice:
+              $ref: '#/components/schemas/Invoice'
+            deliveryStatus:
+              type: string
+              enum:
+                - UNKNOWN
+                - IN_TRANSIT
+                - DELIVERED
+                - HOLD_FOR_PICKUP
+                - DELAYED
+                - DELIVERED_LATE
+            shipmentExceptionDate:
+              type: string
+              format: date-time
+            shipmentExceptionDescription:
+              type: string
+            metadata:
+              type: object
+              properties:
+                string:
+                  type: string
+            cancelDetails:
+              type: string
+            documentIntermediator:
+              type: string
+            intermediateRegistrationId:
+              type: string
+            documentPaymentInstitution:
+              type: string
+        - $ref: '#/components/schemas/OrderPost'
+    OrderStatusUpdate:
+      title: OrderStatusUpdate
+      type: object
+      x-examples:
+        example-1:
+          success: true
+          errorMessage: string
+          marketPlaceStatus: string
+      properties:
+        success:
+          type: boolean
+        errorMessage:
+          type: string
+          description: Mensagem com o motivo da não atualização do status do pedido
+        marketPlaceStatus:
+          type: string
+          description: Status do pedido no Marketplace
+      required:
+        - success
+        - marketPlaceStatus
+      description: 'Quando o marketplace receber a notificação de atualização de um pedido, seja ele mudando para FATURADO, ENVIADO, CONCLUIDO ou CANCELADO no endpoint /updateOrderStatusInMarketPlace. Necessariamente o marketplace deve realizar o GET para consultar os dados do pedido e na sequencia utilizar do endpoint citado a cima, removendo a sinalização de sincronização e identificando qual o status do pedido no marketplace. Lembrando que caso não processe, o erro deve ser informado também nesse endpoint.'
+    Page_Order:
+      title: Page_Brand
+      allOf:
+        - properties:
+            links:
+              type: array
+              description: Referências de paginação
+              uniqueItems: false
+              minItems: 1
+              maxItems: 1
+              items:
+                $ref: '#/components/schemas/PageLinks'
+            content:
+              type: array
+              description: Lista de marcas
+              items:
+                $ref: '#/components/schemas/Order'
+            page:
+              $ref: '#/components/schemas/PageMetadata'
+      x-tags:
+        - Marcas
+      description: ''
+      type: object
+    PageLinks:
+      title: PageLinks
+      type: object
+      x-tags:
+        - page
+        - pageable
+      properties:
+        rel:
+          type: string
+          description: Relacionamento do hyperlink
+          example: next
+        href:
+          type: string
+          description: Url de definição do recurso
+          example: 'https://.../v2/component?limit=5&offset=5'
+          format: uri
+    PageMetadata:
+      title: PageMetadata
+      type: object
+      properties:
+        size:
+          type: integer
+          description: Tamanho da página
+          format: int64
+          minimum: 5
+          readOnly: true
+        totalElements:
+          type: integer
+          description: Total de elementos existentes
+          format: int64
+          minimum: 0
+          readOnly: true
+        totalPages:
+          type: integer
+          description: Total de páginas disponíveis
+          format: int64
+          minimum: 1
+          readOnly: true
+        number:
+          type: integer
+          description: Número da página atual
+          format: int64
+          minimum: 1
+          readOnly: true
+      x-tags:
+        - page
+        - pageable
+    CanceledStatusDTO:
+      title: CanceledStatusDTO
+      type: object
+      properties:
+        date:
+          type: string
+          format: date-time
+      x-examples:
+        example-1:
+          date: '2022-02-07T10:56:42-03:00'
+    markAsShipped:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          status: SHIPPED
+          url: 'https://teste.com.br'
+          number: PR55887C12
+          carrier: Total Express
+          estimateDate: '2021-11-01T00:00:00-03:00'
+          shippedDate: '2021-10-27T14:57:55-03:00'
+      properties:
+        status:
+          type: string
+          minLength: 1
+          description: Status do pedido no ANYMARKET
+          enum:
+            - SHIPPED
+        url:
+          type: string
+          minLength: 1
+          description: URL para rastreio
+        number:
+          type: string
+          minLength: 1
+          description: codigo de rastreio
+        carrier:
+          type: string
+          minLength: 1
+          description: Transportadora
+        estimateDate:
+          type: string
+          minLength: 1
+          description: Data estimada de entrega
+        shippedDate:
+          type: string
+          minLength: 1
+          description: Data de envio
+      required:
+        - shippedDate
+    markAsDelivered:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          deliveredDate: '2021-10-27T14:57:55-03:00'
+      properties:
+        deliveredDate:
+          type: string
+          minLength: 1
+          description: Data de entrega
+      required:
+        - deliveredDate
+    configuration:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          id: 1
+          oi: '12345678.'
+          active: true
+          templateId: 641
+          accountName: Conta - TESTE
+          marketplace: MARKETPLACE
+          discountType: VALUE
+          useSandbox: false
+          accountDefault: true
+          priceFactor: 1.5
+          discountValue: 0
+          updatePriceStockStatus: true
+          additionOfFreight: 0
+          fields:
+            - value: '2000'
+              key: shopId
+            - value: LG1234567892346R-213987654
+              key: anymarketToken
+            - value: '12345678.'
+              key: organizationId
+          initialDateOrderImport: '2021-10-27'
+      properties:
+        id:
+          type: number
+          description: É o Id fornecido no saveAccount quando o seller ativa a integração no Anymarket.
+        oi:
+          type: string
+          minLength: 1
+          description: OI (Organization Id) do Seller
+        active:
+          type: boolean
+          description: Informa se a integração esá Ativa (Booleano).
+        templateId:
+          type: number
+          description: Id do template padrão
+        accountName:
+          type: string
+          minLength: 1
+          description: Nome da conta do Seller no Anymarket.
+        marketplace:
+          type: string
+          minLength: 1
+          description: Nome do próprio Marketplace.
+        discountType:
+          type: string
+          minLength: 1
+          description: Tipo de Desconto
+          default: PERCENT
+          enum:
+            - PERCENT
+            - VALUE
+        useSandbox:
+          type: boolean
+          description: Informa se o uso é em Sandbox.
+        accountDefault:
+          type: boolean
+          description: Informa a Conta Padrão.
+        priceFactor:
+          type: number
+          description: Fator de Preço Multiplicador (Markup Adicional)
+          format: double
+        discountValue:
+          type: number
+          description: Valor de desconto.
+          format: double
+        updatePriceStockStatus:
+          type: boolean
+          description: 'Informa se irá atualizar Preço, Estoque e Status.'
+        additionOfFreight:
+          type: number
+          description: Porcentagem adicional sobre a tabela de frete.
+        fields:
+          type: array
+          uniqueItems: true
+          minItems: 1
+          description: Campos do módulo que são customizados para atender a autenticação do Seller ao Marketplace.
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+                minLength: 1
+              key:
+                type: string
+                minLength: 1
+            required:
+              - value
+              - key
+        initialDateOrderImport:
+          type: string
+          minLength: 1
+          description: Data inicial para importação dos pedidos
+      required:
+        - id
+        - oi
+        - active
+        - accountName
+        - marketplace
+        - discountType
+        - useSandbox
+        - accountDefault
+        - priceFactor
+        - discountValue
+        - updatePriceStockStatus
+        - additionOfFreight
+        - fields
+        - initialDateOrderImport
+    freight:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          zipCode: '89165063'
+          additionalPercentual: 0
+          products:
+            - skuId: '47'
+              amount: 1
+              dimensions:
+                length: 25
+                width: 15
+                height: 10
+                weight: 0.37
+      properties:
+        zipCode:
+          type: string
+          minLength: 1
+          description: Código de destino.
+        additionalPercentual:
+          type: number
+          description: Porcentagem adicional no valor do frete
+        products:
+          type: array
+          uniqueItems: true
+          minItems: 1
+          items:
+            type: object
+            properties:
+              skuId:
+                type: string
+                minLength: 1
+                description: SKU do produto enviado pelo ANYMARKET (skuInMarketplace)
+              amount:
+                type: number
+                description: Quantidade para a cotação
+              dimensions:
+                type: object
+                description: Dimensões do Produto
+                properties:
+                  length:
+                    type: number
+                    description: Comprimento
+                  width:
+                    type: number
+                    description: Largura
+                  height:
+                    type: number
+                    description: Altura
+                  weight:
+                    type: number
+                    description: Peso
+            required:
+              - skuId
+              - amount
+      required:
+        - zipCode
+        - additionalPercentual
+        - products
+    putskuMarketplace:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          idInMarketplace: '00001'
+          idInSite: '551162751'
+          skuInMarketplace: '551162751'
+          marketplaceStatus: ATIVO
+          idSku: 1540465
+          transmissionStatus: OK
+          errorMsg: ''
+          status: ACTIVE
+      properties:
+        idInMarketplace:
+          type: string
+          minLength: 1
+          description: |
+            Id do anuncio no marketplace
+        idInSite:
+          type: string
+          minLength: 1
+          description: |
+            id do produto no site do marketplace
+        skuInMarketplace:
+          type: string
+          minLength: 1
+          description: |
+            Sku do produto no marketplace
+        marketplaceStatus:
+          type: string
+          minLength: 1
+          description: 'Status do anuncio no marketplace. '
+          example: 'ATIVO, EM CATALOGAÇÃO, SINCRONIZANDO, etc.'
+        idSku:
+          type: number
+          description: |
+            id do sku ANYMARKET
+        transmissionStatus:
+          type: string
+          minLength: 1
+          description: |
+            Status da transmissão ANYMARKET
+          enum:
+            - WAITING_SYNC
+            - SENDING
+            - PAUSING
+            - CLOSING
+            - ERROR
+            - ACTIVATING
+            - RETRY
+            - SYNCING
+            - OK
+        errorMsg:
+          type: string
+          description: |
+            Mensagem de retorno quando o anuncio é criticado
+        status:
+          type: string
+          minLength: 1
+          description: |
+            Status da transmissão no ANYMARKET
+          enum:
+            - ACTIVE
+            - CLOSED
+            - CORRUPTED
+            - PAUSED
+            - UNPUBLISHED
+            - WITHOUT_STOCK
+      required:
+        - idInMarketplace
+        - idInSite
+        - skuInMarketplace
+        - marketplaceStatus
+        - idSku
+        - transmissionStatus
+        - errorMsg
+        - status
+    getSkuMarketplace:
+      description: Produto Simples
+      type: object
+      x-examples:
+        example-1:
+          catalog: false
+          status: UNPUBLISHED
+          marketplaceStatus: unpublished
+          fields:
+            template: '0'
+            is_main_sku: 'true'
+            DISCOUNT_VALUE: '0'
+            DISCOUNT_TYPE: PERCENT
+            HAS_DISCOUNT: 'true'
+            priceFactor: '1.00'
+          isCatalog: false
+          title: Produto de Teste
+          ean: '8212345678910'
+          skuInMarketplace: testeAny
+          priceFactor: 1
+          price: 10
+          discountPrice: 10
+          idAccount: 25
+          accountName: Teste
+          id: 61234
+          stock:
+            amount: 10
+            availableAmount: 10
+            cost: 10
+            totalReservation: 0
+            physicalAmount: 10
+            stockLocal: Estoque Físico
+            additionalTime: 0
+          sku:
+            id: 1609358
+            partnerId: teste-Any
+            amount: 10
+            ean: '8212345678910'
+            title: Produto de teste
+            price: 10
+            sellPrice: 10
+            additionalTime: 0
+            product:
+              id: 2340714
+              title: teste
+              description: <p>Teste de descrição dos produtos</p>
+              model: '123'
+              definitionPriceScope: SKU
+              origin:
+                name: NACIONAL
+                id: 0
+              category:
+                id: 774786
+                idInMarketplace: '10'
+                name: Categoria de teste
+                path: Produto Fisico/Categoria de teste
+              height: 0
+              length: 0
+              width: 0
+              weight: 0
+              brand:
+                id: 231946
+                idInMarketplace: '2000195'
+                name: Marca teste
+                partnerId: '123'
+              warrantyTime: 1
+              warrantyText: '1'
+              priceFactor: 1
+              calculatedPrice: false
+              hasVariations: false
+              allowAutomaticSkuMarketplaceCreation: true
+      properties:
+        catalog:
+          type: boolean
+        status:
+          type: string
+          minLength: 1
+          default: UNPUBLISHED
+          description: 'Status da Publicação (Por padrão, a publicação é criada como UNPUBLISHED)'
+        marketplaceStatus:
+          type: string
+          minLength: 1
+          description: Status do produto no Marketplace
+        fields:
+          type: object
+          required:
+            - is_main_sku
+            - DISCOUNT_VALUE
+            - template
+            - DISCOUNT_TYPE
+            - HAS_DISCOUNT
+            - priceFactor
+          properties:
+            is_main_sku:
+              type: boolean
+              description: Informa se é o SKU principal.
+            DISCOUNT_VALUE:
+              type: string
+              minLength: 1
+              description: Valor de Desconto
+            template:
+              type: string
+              minLength: 1
+            DISCOUNT_TYPE:
+              type: string
+              minLength: 1
+              description: Tipo de desconto
+              enum:
+                - VALUE
+                - PERCENT
+            HAS_DISCOUNT:
+              type: string
+              minLength: 1
+              description: Informa se possui desconto
+            priceFactor:
+              type: string
+              minLength: 1
+              description: Markup
+        isCatalog:
+          type: boolean
+        title:
+          type: string
+          minLength: 1
+          description: Titulo da Publicação
+        ean:
+          type: string
+          minLength: 1
+          description: Ean do Produto no Anymarket
+        skuInMarketplace:
+          type: string
+          minLength: 1
+          description: SKU do produto (Aplicado o REGEX)
+        priceFactor:
+          type: number
+          description: Markup
+        price:
+          type: number
+          description: 'Preço DE:'
+        discountPrice:
+          type: number
+          description: 'Preço POR:'
+        idAccount:
+          type: number
+          description: Id da conta que é gerado na configuração do Módulo
+        accountName:
+          type: string
+          minLength: 1
+          description: Nome da Conta definido na tela do Módulo
+        id:
+          type: number
+        stock:
+          type: object
+          required:
+            - amount
+            - availableAmount
+            - cost
+            - totalReservation
+            - physicalAmount
+            - stockLocal
+            - additionalTime
+          properties:
+            amount:
+              type: number
+              description: Total de Estoque
+            availableAmount:
+              type: number
+              description: Quantidade disponível do SKU
+            cost:
+              type: number
+              description: Valor de custo do Produto.
+            totalReservation:
+              type: number
+              description: Total de Reserva.
+            physicalAmount:
+              type: number
+            stockLocal:
+              type: string
+              minLength: 1
+            additionalTime:
+              type: number
+        sku:
+          type: object
+          required:
+            - id
+            - partnerId
+            - amount
+            - ean
+            - title
+            - price
+            - sellPrice
+            - additionalTime
+            - product
+          properties:
+            id:
+              type: number
+              description: Id do Sku
+            partnerId:
+              type: string
+              minLength: 1
+              description: Sku do Produto no ANYMARKET (Sem aplicação do REGEX)
+            amount:
+              type: number
+              description: Quantidade em estoque desse SKU
+            ean:
+              type: string
+              minLength: 1
+            title:
+              type: string
+              minLength: 1
+              description: 'Titulo do SKU (EM CASO DE PRODUTOS COM VARIAÇÃO, O ANY CONCATENA A VARIAÇÃO AO TITULO)'
+            price:
+              type: number
+            sellPrice:
+              type: number
+            additionalTime:
+              type: number
+            product:
+              type: object
+              required:
+                - id
+                - title
+                - description
+                - model
+                - definitionPriceScope
+                - origin
+                - category
+                - height
+                - length
+                - width
+                - weight
+                - brand
+                - warrantyTime
+                - warrantyText
+                - priceFactor
+                - calculatedPrice
+                - hasVariations
+                - allowAutomaticSkuMarketplaceCreation
+              properties:
+                id:
+                  type: number
+                  description: Id do Produto.
+                title:
+                  type: string
+                  minLength: 1
+                  description: Titulo do Produto
+                description:
+                  type: string
+                  minLength: 1
+                  description: 'Descrição do Produto (Obs: ANYMARKET aceita tags HTML, caso o marketplace não aceite, será necessario fazer a retirada)'
+                model:
+                  type: string
+                  minLength: 1
+                  description: Modelo do Produto
+                definitionPriceScope:
+                  type: string
+                  minLength: 1
+                origin:
+                  type: object
+                  required:
+                    - name
+                    - id
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                      description: Informa se o produto é Nacional
+                    id:
+                      type: number
+                      description: Id Origin
+                category:
+                  type: object
+                  required:
+                    - id
+                    - idInMarketplace
+                    - name
+                    - path
+                  properties:
+                    id:
+                      type: number
+                      description: 'Id da categoria no ANYMARKET  '
+                    idInMarketplace:
+                      type: string
+                      minLength: 1
+                      description: Id da Categoria no Marketplace (Obtido atraves da vinculação da categoria)
+                    name:
+                      type: string
+                      minLength: 1
+                      description: Nome da Categoria
+                    path:
+                      type: string
+                      minLength: 1
+                      description: Caminho da Categoria no ANYMARKET
+                height:
+                  type: number
+                  description: altura da Embalagem
+                length:
+                  type: number
+                  description: Comprimento da Embalagem
+                width:
+                  type: number
+                  description: Largura da Embalagem
+                weight:
+                  type: number
+                  description: Peso da Embalagem
+                brand:
+                  type: object
+                  required:
+                    - id
+                    - idInMarketplace
+                    - name
+                    - partnerId
+                  properties:
+                    id:
+                      type: number
+                      description: Id da Marca no ANYMARKET
+                    idInMarketplace:
+                      type: string
+                      minLength: 1
+                      description: Id da marca no MARKETPLACE (Obtido na vinculação da marca)
+                    name:
+                      type: string
+                      minLength: 1
+                      description: Nome da Marca
+                    partnerId:
+                      type: string
+                      minLength: 1
+                      description: identificado da Marca ( Informado pelo Seller)
+                warrantyTime:
+                  type: number
+                  description: Tempo de Garantia em dias
+                warrantyText:
+                  type: string
+                  minLength: 1
+                  description: Texto de Garantia
+                priceFactor:
+                  type: number
+                calculatedPrice:
+                  type: boolean
+                hasVariations:
+                  type: boolean
+                  description: Informa se o produto tem variação.
+                allowAutomaticSkuMarketplaceCreation:
+                  type: boolean
+      required:
+        - catalog
+        - status
+        - marketplaceStatus
+        - fields
+        - isCatalog
+        - title
+        - ean
+        - skuInMarketplace
+        - priceFactor
+        - price
+        - discountPrice
+        - idAccount
+        - accountName
+        - id
+        - stock
+        - sku
+      title: getskuMarketplace
+    getskuMarketplace-variation:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          catalog: false
+          status: UNPUBLISHED
+          marketplaceStatus: Não publicado - O Marketplace está processando a atualização.
+          fields:
+            template: '0'
+            is_main_sku: 'false'
+            DISCOUNT_VALUE: '50'
+            DISCOUNT_TYPE: PERCENT
+            HAS_DISCOUNT: 'true'
+            priceFactor: '1.00'
+          isCatalog: false
+          title: Produto Teste com variação de Cor - Azul
+          ean: '1912345678812'
+          skuInMarketplace: COMVARIAOAZUL
+          priceFactor: 1
+          price: 20
+          discountPrice: 10
+          idAccount: 25
+          accountName: Conta Teste
+          id: 61233
+          stock:
+            amount: 10
+            availableAmount: 10
+            cost: 100
+            totalReservation: 0
+            physicalAmount: 10
+            stockLocal: Estoque Físico
+            additionalTime: 0
+          attributes:
+            Indicado para: Dia a Dia
+          sku:
+            id: 1610303
+            partnerId: COMVARIAÇÃOAZUL
+            amount: 10
+            ean: '1912345678910'
+            title: Produto Teste com variação de Cor - Azul
+            price: 20
+            sellPrice: 10
+            additionalTime: 0
+            variations:
+              - id: 35191285
+                idInMarketplace: 1992-AZUL
+                description: Azul
+                type:
+                  id: 32605
+                  idInMarketplace: 1B629497xK278415
+                  name: Cor
+                  visualVariation: true
+            product:
+              id: 2356789
+              title: Produto Teste com variação de Cor
+              description: <p>Produto Teste com varia&ccedil;&atilde;o de Cor</p>
+              model: Produto Teste
+              definitionPriceScope: SKU
+              characteristics:
+                - index: 1
+                  name: Indicado para
+                  value: Dia a Dia
+              origin:
+                name: NACIONAL
+                id: 0
+              category:
+                id: 774786
+                idInMarketplace: '10'
+                name: Produto com Variação
+                path: Produto Fisico/Produto com Variação
+              height: 0
+              length: 0
+              width: 0
+              weight: 0
+              images:
+                - id: 2015385
+                  index: 1
+                  variation: Azul
+                  thumbnailUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/12345678./6C0C01E3435CADFE017A307703D1FA93/thumbnail.jpg'
+                  standardUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/12345678./6C0C01E3435CADFE017A307703D1FA93/standard_resolution.jpg'
+                  lowResolutionUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/12345678./6C0C01E3435CADFE017A307703D1FA93/low_resolution.jpg'
+                  originalImage: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/12345678./6C0C01E3435CADFE017A307703D1FA93/original_image.jpg'
+                  url: 'https://s3.sa-east-1.amazonaws.com/images.sox.anymarket.com.br/12345678./1636471915306/original.jpeg'
+                  status: PROCESSED
+                  main: true
+                  standardWidth: 1000
+                  standardHeight: 1000
+                  originalWidth: 1000
+                  originalHeight: 1000
+                - id: 2015386
+                  index: 2
+                  variation: Verde
+                  thumbnailUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/12345678./C9F2B763201EBEC20C07F56DACC990E1/thumbnail.jpg'
+                  standardUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/12345678./C9F2B763201EBEC20C07F56DACC990E1/standard_resolution.jpg'
+                  lowResolutionUrl: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/12345678./C9F2B763201EBEC20C07F56DACC990E1/low_resolution.jpg'
+                  originalImage: 'http://s3-sa-east-1.amazonaws.com/images.anymarket.com.br/12345678./C9F2B763201EBEC20C07F56DACC990E1/original_image.jpg'
+                  url: 'https://s3.sa-east-1.amazonaws.com/images.sox.anymarket.com.br/12345678./1636471956004/original.jpeg'
+                  status: PROCESSED
+                  main: true
+                  standardWidth: 1000
+                  standardHeight: 1000
+                  originalWidth: 1200
+                  originalHeight: 1200
+              brand:
+                id: 231949
+                idInMarketplace: '2000016'
+                name: MARCA TESTE
+              warrantyTime: 1
+              warrantyText: '1'
+              priceFactor: 1
+              calculatedPrice: false
+              hasVariations: true
+              gender: FEMALE
+              allowAutomaticSkuMarketplaceCreation: true
+      properties:
+        catalog:
+          type: boolean
+        status:
+          type: string
+          minLength: 1
+          description: 'Status da Publicação (Por padrão, a publicação é criada como UNPUBLISHED)'
+          default: UNPUBLISHED
+        marketplaceStatus:
+          type: string
+          minLength: 1
+          description: Texto disponibilizado pelo Marketplace informando o Status do produto
+        fields:
+          type: object
+          required:
+            - template
+            - is_main_sku
+            - DISCOUNT_VALUE
+            - DISCOUNT_TYPE
+            - HAS_DISCOUNT
+            - priceFactor
+          properties:
+            template:
+              type: string
+              minLength: 1
+            is_main_sku:
+              type: string
+              minLength: 1
+              description: Informa se é o SKU principal.
+            DISCOUNT_VALUE:
+              type: string
+              minLength: 1
+              description: Valor de Desconto
+            DISCOUNT_TYPE:
+              type: string
+              minLength: 1
+              description: Tipo de desconto
+              enum:
+                - VALUE
+                - PERCENT
+            HAS_DISCOUNT:
+              type: string
+              minLength: 1
+              description: Informa se possui desconto
+            priceFactor:
+              type: string
+              minLength: 1
+              description: Markup
+        isCatalog:
+          type: boolean
+        title:
+          type: string
+          minLength: 1
+          description: Titulo da Publicação
+        ean:
+          type: string
+          minLength: 1
+          description: EAN do produto
+        skuInMarketplace:
+          type: string
+          minLength: 1
+          description: SKU do produto (Aplicado o REGEX)
+        priceFactor:
+          type: number
+          description: Markup
+        price:
+          type: number
+          description: 'Preço DE:'
+        discountPrice:
+          type: number
+          description: 'Preço POR:'
+        idAccount:
+          type: number
+          description: Id da conta que é gerado na Ativação do Módulo
+        accountName:
+          type: string
+          minLength: 1
+          description: Nome da Conta que fez a publicação.
+        id:
+          type: number
+        stock:
+          type: object
+          required:
+            - amount
+            - availableAmount
+            - cost
+            - totalReservation
+            - physicalAmount
+            - stockLocal
+            - additionalTime
+          properties:
+            amount:
+              type: number
+              description: Total de Estoque
+            availableAmount:
+              type: number
+              description: Quantidade disponível do SKU em Estoque
+            cost:
+              type: number
+              description: Valor de custo do Produto.
+            totalReservation:
+              type: number
+              description: Total de Reserva de Estoque.
+            physicalAmount:
+              type: number
+            stockLocal:
+              type: string
+              minLength: 1
+              description: 'Local de '
+            additionalTime:
+              type: number
+              description: Prazo de Crossdocking
+        attributes:
+          type: object
+          description: ''
+          required:
+            - String
+          properties:
+            String:
+              type: string
+              minLength: 1
+              description: Nome do Atributo
+        sku:
+          type: object
+          required:
+            - id
+            - partnerId
+            - amount
+            - ean
+            - title
+            - price
+            - sellPrice
+            - additionalTime
+            - variations
+            - product
+          properties:
+            id:
+              type: number
+              description: Id do SKU
+            partnerId:
+              type: string
+              minLength: 1
+              description: Sku no ANYMARKET (Sem aplicação do REGEX)
+            amount:
+              type: number
+              description: Quantidade em estoque desse SKU
+            ean:
+              type: string
+              minLength: 1
+              description: EAN do SKU
+            title:
+              type: string
+              minLength: 1
+              description: 'Titulo do SKU (EM CASO DE PRODUTOS COM VARIAÇÃO, O ANY CONCATENA A VARIAÇÃO AO TITULO)'
+            price:
+              type: number
+            sellPrice:
+              type: number
+            additionalTime:
+              type: number
+            variations:
+              type: array
+              uniqueItems: true
+              minItems: 1
+              items:
+                type: object
+                properties:
+                  id:
+                    type: number
+                    description: Id do valor Variação no ANYMARKET
+                  idInMarketplace:
+                    type: string
+                    minLength: 1
+                    description: Id do valor da variação no Marketplace (Obtido ao realizar o vinculo de variação)
+                  description:
+                    type: string
+                    minLength: 1
+                    description: Valor da Variação
+                    example: 'P, M, G, GG'
+                  type:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                        description: Id do Tipo de Variação no ANYMARKET
+                      idInMarketplace:
+                        type: string
+                        minLength: 1
+                        description: Id do tipo de Variação no Marketplace (Obtido ao realizar o vinculo de variação)
+                      name:
+                        type: string
+                        minLength: 1
+                        description: Nome do Tipo de variação
+                        example: Tamanho
+                      visualVariation:
+                        type: boolean
+                        description: 'Informa se é uma variação Visual. (EX: Cor, Estampa, etc)'
+                    required:
+                      - id
+                      - idInMarketplace
+                      - name
+                      - visualVariation
+                required:
+                  - id
+                  - idInMarketplace
+                  - description
+            product:
+              type: object
+              required:
+                - id
+                - title
+                - description
+                - model
+                - definitionPriceScope
+                - characteristics
+                - origin
+                - category
+                - height
+                - length
+                - width
+                - weight
+                - images
+                - brand
+                - warrantyTime
+                - warrantyText
+                - priceFactor
+                - calculatedPrice
+                - hasVariations
+                - gender
+                - allowAutomaticSkuMarketplaceCreation
+              properties:
+                id:
+                  type: number
+                  description: Id do Produto. (Pode se utilizar desse ID para realizar agrupamento dos produtos com variação)
+                title:
+                  type: string
+                  minLength: 1
+                  description: Titulo do Produto
+                description:
+                  type: string
+                  minLength: 1
+                  description: 'Descrição do Produto (Obs: ANYMARKET aceita tags HTML, caso o marketplace não aceite, será necessario fazer a retirada)'
+                model:
+                  type: string
+                  minLength: 1
+                  description: Modelo do Produto
+                definitionPriceScope:
+                  type: string
+                  minLength: 1
+                  description: 'Suporte aos tipos SKU (Manual, eu controlo o preço pelo SKU), SKU_MARKETPLACE (Manual, eu controlo o preço pelo anúncio) ou COST (Automático, pela mudança do custo) '
+                  enum:
+                    - SKU
+                    - SKU_MARKETPLACE
+                    - COST
+                characteristics:
+                  type: array
+                  uniqueItems: true
+                  minItems: 1
+                  items:
+                    type: object
+                    properties:
+                      index:
+                        type: number
+                      name:
+                        type: string
+                        minLength: 1
+                      value:
+                        type: string
+                        minLength: 1
+                    required:
+                      - index
+                      - name
+                      - value
+                origin:
+                  type: object
+                  required:
+                    - name
+                    - id
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                    id:
+                      type: number
+                category:
+                  type: object
+                  required:
+                    - id
+                    - idInMarketplace
+                    - name
+                    - path
+                  properties:
+                    id:
+                      type: number
+                      description: Id da Categoria no ANYMARKET
+                    idInMarketplace:
+                      type: string
+                      minLength: 1
+                      description: Id da Categoria no MARKETPLACE (Obtido ao realizar o vinculo de categoria)
+                    name:
+                      type: string
+                      minLength: 1
+                      description: Nome da Categoria
+                    path:
+                      type: string
+                      minLength: 1
+                      description: Caminho da Categoria
+                height:
+                  type: number
+                  description: Altura da Embalagem
+                length:
+                  type: number
+                  description: Comprimento da Embalagem
+                width:
+                  type: number
+                  description: Largura da Embalagem
+                weight:
+                  type: number
+                  description: Peso da Embalagem
+                images:
+                  type: array
+                  uniqueItems: true
+                  minItems: 1
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      index:
+                        type: number
+                        description: Ordenação das Imagens
+                      variation:
+                        type: string
+                        minLength: 1
+                        description: Informa qual variação essa imagem pertence.
+                      thumbnailUrl:
+                        type: string
+                        minLength: 1
+                      standardUrl:
+                        type: string
+                        minLength: 1
+                        description: 'Recomendamos utilizar essa imagem, pois é a imagem que o ANYMARKET processou e está em nosso servidor.'
+                      lowResolutionUrl:
+                        type: string
+                        minLength: 1
+                      originalImage:
+                        type: string
+                        minLength: 1
+                      url:
+                        type: string
+                        minLength: 1
+                      status:
+                        type: string
+                        minLength: 1
+                        description: Status do processamento da Imagem
+                      main:
+                        type: boolean
+                        description: Informa se a imagem é a principal.
+                      standardWidth:
+                        type: number
+                      standardHeight:
+                        type: number
+                      originalWidth:
+                        type: number
+                      originalHeight:
+                        type: number
+                    required:
+                      - id
+                      - index
+                      - variation
+                      - thumbnailUrl
+                      - standardUrl
+                      - lowResolutionUrl
+                      - originalImage
+                      - url
+                      - status
+                      - main
+                      - standardWidth
+                      - standardHeight
+                      - originalWidth
+                      - originalHeight
+                brand:
+                  type: object
+                  required:
+                    - id
+                    - idInMarketplace
+                    - name
+                  properties:
+                    id:
+                      type: number
+                      description: Id da Marca no ANYMARKET
+                    idInMarketplace:
+                      type: string
+                      minLength: 1
+                      description: Id da Marca no Marketplace (Obtido ao realizar o vinculo de marcas)
+                    name:
+                      type: string
+                      minLength: 1
+                      description: Nome da Marca
+                warrantyTime:
+                  type: number
+                  description: Tempo de garantia em dias.
+                warrantyText:
+                  type: string
+                  minLength: 1
+                  description: Texto de garantia
+                priceFactor:
+                  type: number
+                  description: MARKUP
+                calculatedPrice:
+                  type: boolean
+                hasVariations:
+                  type: boolean
+                  description: Informa se o produto possui Variação
+                gender:
+                  type: string
+                  minLength: 1
+                  description: Gênero
+                allowAutomaticSkuMarketplaceCreation:
+                  type: boolean
+      required:
+        - catalog
+        - status
+        - marketplaceStatus
+        - fields
+        - isCatalog
+        - title
+        - ean
+        - skuInMarketplace
+        - priceFactor
+        - price
+        - discountPrice
+        - idAccount
+        - accountName
+        - id
+        - stock
+        - attributes
+        - sku
+    markAsCanceled:
+      description: ''
+      type: object
+      properties:
+        date:
+          type: string
+          minLength: 1
+      required:
+        - date
+      x-examples:
+        example-1:
+          date: '2022-02-07T10:56:42-03:00'
+  parameters:
+    offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        default: 1
+        minimum: 1
+        exclusiveMaximum: true
+        example: 1
+      description: Posição de início da paginação
+    limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        minimum: 5
+        exclusiveMaximum: true
+        default: 5
+        example: 5
+      description: Número máximo de marcas
+    sort:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Atributo para ordenação
+    appId:
+      name: appId
+      in: header
+      required: true
+      schema:
+        type: string
+    token:
+      name: token
+      in: header
+      required: true
+      schema:
+        type: string
+      description: token
+  examples:
+    brands_200:
+      value:
+        links:
+          - rel: string
+            href: string
+        content:
+          - rel: string
+            href: string
+        page:
+          size: 0
+          totalElements: 0
+          totalPages: 0
+          number: 0
