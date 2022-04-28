@@ -2980,7 +2980,7 @@ components:
         address:
           type: string
           description: Endereço completo
-          example: '"Rua Teste, 100, apto 602, zona 07. Maringá-PR"'
+          example: '"Rua Teste, 100, Apto 602, Zona 07"'
         promisedShippingTime:
           type: string
           format: date-time
