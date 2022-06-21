@@ -999,6 +999,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
+        '404':
+          description: 'Pedido não encontrado'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    code: 404
+                    message: Venda com id '123456' não encontrada para o marketplace 'MARKEPLACE_NAME'
+              examples:
+                example-1:
+                  value:
+                    code: 404
+                    message: string
       operationId: put-orders-id-markAsPaid
       requestBody:
         content:
@@ -1037,6 +1057,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
+        '404':
+          description: 'Pedido não encontrado'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    code: 404
+                    message: Venda com id '123456' não encontrada para o marketplace 'MARKEPLACE_NAME'
+              examples:
+                example-1:
+                  value:
+                    code: 404
+                    message: string
       operationId: put-id-markAsCanceled
       description: Utilizado para que o middleware marque o pedido como CANCELADO no ANYMARKET.
       parameters:
@@ -1078,6 +1118,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
+        '404':
+          description: 'Pedido não encontrado'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    code: 404
+                    message: Venda com id '123456' não encontrada para o marketplace 'MARKEPLACE_NAME'
+              examples:
+                example-1:
+                  value:
+                    code: 404
+                    message: string
       operationId: put-orders-id-markAsInvoiced
       requestBody:
         content:
@@ -1121,6 +1181,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
+        '404':
+          description: 'Pedido não encontrado'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    code: 404
+                    message: Venda com id '123456' não encontrada para o marketplace 'MARKEPLACE_NAME'
+              examples:
+                example-1:
+                  value:
+                    code: 404
+                    message: string
       operationId: put-id-markAsShipped
       description: |-
         Utilizado para que o middleware marque o pedido como ENVIADO no ANYMARKET.
@@ -1165,6 +1245,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
+        '404':
+          description: 'Pedido não encontrado'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    code: 404
+                    message: Venda com id '123456' não encontrada para o marketplace 'MARKEPLACE_NAME'
+              examples:
+                example-1:
+                  value:
+                    code: 404
+                    message: string
       operationId: put-orders-id-markAsDelivered
       description: |-
         Utilizado para que o middleware marque o pedido como ENTREGUE no ANYMARKET.
