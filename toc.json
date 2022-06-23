@@ -54,15 +54,6 @@
       "type": "item",
       "title": "API REMOTE",
       "uri": "reference/remote_pt.yaml"
-    },
-        {
-      "type": "divider",
-      "title": "Exemplos MARKDOWN (apagar)"
-    },
-    {
-      "type": "item",
-      "title": "Exemplo de tags",
-      "uri": "docs/exemplos.md"
     }
   ]
 }
