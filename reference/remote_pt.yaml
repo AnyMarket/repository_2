@@ -112,7 +112,7 @@ paths:
 
         > #### Ponto de Atenção!
         >
-        > Por isso, quando o marketplace receber a notificação é importante que o mesmo inative o produto para vendas, evitando assim vendas sem estoque e problemas futuros.
+        > Por isso, quando o marketplace receber a notificação é importante que o mesmo inative o produto para vendas, evitando assim vendas sem estoque e problemas futuros. 
       requestBody:
         content:
           application/json:
