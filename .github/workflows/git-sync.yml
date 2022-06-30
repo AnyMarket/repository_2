@@ -12,7 +12,7 @@ jobs:
       - name: entrypoint
         uses: wei/git-sync@v3.0.0
         with:
-          source_repo: "https://github.com/AnyMarket/api_marketplace_doc_pt_br.git"
+          source_repo: ${{secrets.SOURCE_REPO}}
           source_branch: "main"
           destination_repo: ${{secrets.DESTINATION_REPO}}
           destination_branch: "main"
